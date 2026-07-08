@@ -1,21 +1,50 @@
 # Configuration reference
 
-Trapline has two layers of configuration: **environment variables** (where the process
-runs and stores data) and **persisted settings** (user-editable, stored in the database,
-managed from the Settings page or `PUT /trapline/api/settings`).
+Trapline has three layers of configuration: **CLI flags** (per invocation),
+**environment variables** (where the process runs and stores data), and **persisted
+settings** (user-editable, stored in the database, managed from the Settings page or
+`PUT /trapline/api/settings`).
+
+## CLI flags
+
+Accepted by both the standalone binary and a source run (`server/src/index.ts`). Value
+flags are applied by setting the corresponding environment variable, so a flag always
+overrides an inherited env var.
+
+| Flag | Env equivalent | Effect |
+|---|---|---|
+| `--port <n>` | `TRAPLINE_PORT` | Bind port (1–65535). |
+| `--host <addr>` | `TRAPLINE_HOST` | Bind address. |
+| `--data-dir <dir>` | `TRAPLINE_DATA_DIR` | Data directory. |
+| `--no-browser` | `TRAPLINE_NO_BROWSER=1` | Don't open the dashboard in a browser on start. Only the standalone binary opens one; source runs never do. |
+| `--version`, `-v` | — | Print version (from the root `package.json`, the single source of truth), Node version, and platform, then exit. |
+| `--help`, `-h` | — | Print usage and exit. |
 
 ## Environment variables
 
 | Variable | Default | Purpose |
 |---|---|---|
-| `TRAPLINE_DATA_DIR` | `<repo>/data` | Directory for the SQLite database (`trapline.db`) and its WAL files. Created if missing. |
+| `TRAPLINE_DATA_DIR` | see below | Directory for the SQLite database (`trapline.db`) and its WAL files. Created if missing. |
 | `TRAPLINE_HOST` | `127.0.0.1` | Bind address. Loopback by default — see [security](security.md) before changing. |
 | `TRAPLINE_PORT` | `8731` | Bind port. The launcher and dev proxy honor it too. |
+| `TRAPLINE_NO_BROWSER` | unset | If `1`, the standalone binary doesn't open a browser on start. |
 | `LOG_LEVEL` | `info` | Fastify/pino log level. |
 | `TRAPLINE_DEBUG` | unset | If set, logs speed-test download stream errors to stderr. |
 
 Defined in `server/src/config.ts` (and read once at startup). `NODE_ENV` is set by the
 systemd unit and Dockerfile but not read by application code.
+
+### Default data directory
+
+`TRAPLINE_DATA_DIR` always wins when set. Otherwise the default depends on how Trapline
+runs:
+
+| How it runs | Default data directory |
+|---|---|
+| Source or Docker | `<repo>/data` (Docker maps `TRAPLINE_DATA_DIR=/data` to a volume) |
+| Standalone binary — Windows | `%LOCALAPPDATA%\Trapline` |
+| Standalone binary — macOS | `~/Library/Application Support/Trapline` |
+| Standalone binary — Linux | `$XDG_DATA_HOME/trapline`, or `~/.local/share/trapline` |
 
 ## Persisted settings
 

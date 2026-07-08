@@ -8,16 +8,17 @@ Trapline is a two-package npm workspace: a TypeScript server (Fastify 5, run dir
 trapline/
 ├── trapline                  bash launcher (build/setup/start/stop/status/logs/mode)
 ├── deploy/                   nginx location config, systemd unit template, auto-update script
+├── scripts/build-sea.mjs     standalone-executable build (see Distribution below)
 ├── shared/types.ts           DTOs shared by server and UI
-├── server/  (Fastify 5, TypeScript, tsx, Node ≥ 22)
+├── server/  (Fastify 5, TypeScript, tsx, Node ≥ 24)
 │   └── src/
 │       ├── config.ts         env vars, mode cadences, default settings, probe endpoints
-│       ├── index.ts          bootstrap: DB → migrate → wire components → listen
+│       ├── index.ts          CLI parsing, then bootstrap: DB → migrate → wire → listen
 │       ├── probes/           ping, mtr, dns, http, gateway/ISP-hop discovery
 │       ├── monitor/          scheduler, detector, evidence, rollup, usage
 │       ├── speedtest/        multi-stream HTTP engine + loaded-latency sampling
 │       ├── api/              REST routes, SSE hub, report generation (HTML/CSV/JSON)
-│       ├── db/               better-sqlite3 adapter, migrations, all SQL (repo.ts)
+│       ├── db/               node:sqlite adapter, migrations, all SQL (repo.ts)
 │       └── util/             stats, MOS (ITU-T G.107), time helpers
 └── web/     (React 18 + React Router 6 + Vite 5 + uPlot)
     └── src/                  pages/ (Dashboard, Reports, Tools, Usage, Settings),
@@ -44,20 +45,25 @@ api/reports.ts     ──▶ summaries from rollups + raw   ──▶ reportHtml
 
 ### Server modules
 
-- **`probes/ping.ts`** — one long-lived `ping -n -O -W 3 -i <interval> <host>` child
-  process per target; stdout parsed line-by-line (`parsePingLine`, unit-tested); losses
-  inferred from `-O` "no answer yet" lines and sequence gaps; auto-restart with backoff.
+- **`probes/ping.ts`** — one strategy per platform (see [Platform
+  support](#platform-support)): a long-lived `ping` child process per target on
+  Linux/macOS, a per-interval `ping.exe -n 1` loop on Windows; stdout parsed
+  line-by-line (`parsePingLine`/`parseWindowsPingLine`, unit-tested); losses inferred
+  from no-answer lines and sequence gaps; auto-restart with backoff.
 - **`probes/mtr.ts`** — `runMtr(host, cycles)` spawns `mtr --json`; a startup self-test
   against 127.0.0.1 detects missing raw-socket capability so the UI can warn.
 - **`probes/dns.ts`** — timed lookups via `node:dns` Resolver (2 s timeout); also the
   resolver-benchmark fixtures for the Tools page.
 - **`probes/http.ts`** — small `undici` fetches with time-to-first-byte measurement.
-- **`probes/discovery.ts`** — default gateway from `ip -j route show default`; ISP first
-  hop = first *public* responding hop of an mtr trace (RFC1918/CGNAT-aware).
+- **`probes/discovery.ts`** — default gateway per platform (`ip -j route`,
+  `route -n get default`, or `Get-NetRoute`); ISP first hop = first *public* responding
+  hop (RFC1918/CGNAT-aware) of an mtr trace, or of a `traceroute`/`tracert` when mtr is
+  unavailable.
 - **`probes/netinfo.ts`** — detects the monitor's own vantage point: the default-route
-  interface, whether it is WiFi (`/sys/class/net/<iface>/wireless`), and the negotiated
-  wired link rate (`/sys/class/net/<iface>/speed`). Best-effort (nulls when /sys can't
-  say); surfaced as `link` on `/status` so the UI can warn about a WiFi vantage point.
+  interface, whether it is WiFi, and the negotiated wired link rate, using `/sys`
+  (Linux), `networksetup` + `ifconfig` (macOS), or `Get-NetAdapter` (Windows).
+  Best-effort (nulls when the platform can't say); surfaced as `link` on `/status` so
+  the UI can warn about a WiFi vantage point.
 - **`monitor/scheduler.ts`** — owns all recurring work: spawns/reloads ping probes on
   target changes, DNS/HTTP timers, randomized speed-test scheduling, Full-Capture
   auto-revert, monitor-gap detection, SSE status broadcasts. On restart it closes events
@@ -78,9 +84,11 @@ api/reports.ts     ──▶ summaries from rollups + raw   ──▶ reportHtml
 - **`api/`** — `routes.ts` (REST; see [api.md](api.md)), `sse.ts` (SSE hub),
   `reports.ts` (period summaries, CSV/JSON payloads), `reportHtml.ts` (self-contained
   HTML report with inline SVG charts; all interpolated strings HTML-escaped).
-- **`db/`** — `db.ts` opens better-sqlite3 in WAL mode; `migrations.ts` is a versioned,
-  append-only migration list; `repo.ts` contains **all** SQL as prepared, parameterized
-  statements.
+- **`db/`** — `db.ts` is a thin adapter over Node's built-in `node:sqlite`
+  (`DatabaseSync`, WAL mode) — formerly better-sqlite3; dropping it removed the last
+  native module, so source installs need no compile toolchain (this is why Node ≥ 24 is
+  required). `migrations.ts` is a versioned, append-only migration list; `repo.ts`
+  contains **all** SQL as prepared, parameterized statements.
 
 ### Web UI
 
@@ -90,10 +98,43 @@ goes through `web/src/api/client.ts` (typed fetch wrapper, relative base `/trapl
 and `web/src/api/live.ts` (an `EventSource` singleton for the SSE stream). No secrets,
 no auth logic, no `dangerouslySetInnerHTML`.
 
+## Platform support
+
+Trapline runs on Linux, macOS, and Windows. Anything that touches the OS is isolated in
+`probes/` behind a per-platform switch; everything above it is platform-independent.
+
+| Concern | Linux | macOS | Windows |
+|---|---|---|---|
+| Ping | long-lived iputils `ping -O` per target (losses from "no answer yet" lines) | long-lived BSD `ping` (losses from "Request timeout" lines; interval clamped to ≥ 1 s for non-root) | one `ping.exe -n 1` per interval; locale-independent parsing keyed on `TTL=` |
+| Gateway discovery | `ip -j route` | `route -n get default` | PowerShell `Get-NetRoute` |
+| ISP-hop discovery | mtr, else `traceroute` | mtr, else `traceroute` | `tracert` |
+| WiFi / link detection | `/sys/class/net` | `networksetup` + `ifconfig` | `Get-NetAdapter` |
+
+mtr is optional everywhere (and doesn't exist on Windows); without it, per-event route
+evidence is disabled and discovery falls back to plain traceroute.
+
+## Distribution
+
+Besides source and Docker, releases ship standalone single-file executables built by
+`scripts/build-sea.mjs` using Node's Single Executable Application (SEA) support:
+
+1. Vite builds the web UI; esbuild bundles the server into one CJS file (injecting
+   `__APP_VERSION__` from the root `package.json`).
+2. A SEA blob is generated with the bundle as the entry point and the entire `web/dist`
+   embedded as SEA assets (served from memory — no files on disk).
+3. The blob is injected with `postject` into an official nodejs.org binary — the
+   running one, or for cross-targets a downloaded, checksum-verified one (macOS targets
+   get re-signed ad hoc around the injection).
+
+CI (`.github/workflows/release.yml`) runs this per target — `linux-x64`, `linux-arm64`,
+`macos-x64`, `macos-arm64`, `windows-x64` — on a pushed tag; see `RELEASING.md` at the
+repo root. In a SEA build, `index.ts` detects the SEA context to pick the per-platform
+default data directory and open the browser on start.
+
 ## Database schema
 
-Single SQLite file `data/trapline.db` (WAL). Tables (created in
-`server/src/db/migrations.ts`):
+Single SQLite file `trapline.db` (WAL) in the data directory (per-platform defaults in
+[configuration](configuration.md)). Tables (created in `server/src/db/migrations.ts`):
 
 | Table | Contents |
 |---|---|

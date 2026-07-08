@@ -1,22 +1,99 @@
 # Deployment
 
-Trapline is designed to run 24/7 on a small always-on Linux box on the network you want
-to measure. Three supported shapes: the launcher + systemd (recommended), Docker, and a
-plain dev process.
+Trapline is designed to run 24/7 on a small always-on box on the network you want to
+measure. Four supported shapes: the standalone binary (any OS), the launcher + systemd
+(recommended for a dedicated Linux box), Docker, and a plain dev process.
 
 ## Requirements
 
-- Linux, Node.js ≥ 22 (24 recommended).
-- `ping` (iputils — standard everywhere).
-- `mtr` recommended (`sudo apt install mtr-tiny`) for route evidence; Trapline runs a
-  raw-socket self-test at startup and the UI warns if mtr is unavailable.
+- **Standalone binary:** Windows, macOS, or Linux — no other software needed.
+  **From source or Docker:** Node.js ≥ 24 (the database uses the built-in `node:sqlite`,
+  so there is no native module and no compile toolchain to install).
+- The system `ping` (present on every supported OS; Trapline drives it per-platform —
+  see [architecture](architecture.md#platform-support)).
+- `mtr` recommended (`sudo apt install mtr-tiny` on Linux, `brew install mtr` on macOS;
+  not available on Windows) for route evidence; Trapline runs a raw-socket self-test at
+  startup and the UI warns if mtr is unavailable. Without it, ISP-hop discovery falls
+  back to `traceroute`/`tracert` and route evidence is disabled.
 - **A wired (Ethernet) connection to the router.** WiFi interference is otherwise
   recorded as if it were line trouble, which undermines the evidence. Trapline detects a
   WiFi vantage point (and wired ports negotiated below the plan speed) and warns in the
-  UI; detection reads `/sys/class/net`, so inside VMs it may report unknown — the wired
+  UI; detection is best-effort (`/sys` on Linux, `networksetup`/`ifconfig` on macOS,
+  `Get-NetAdapter` on Windows), so inside VMs it may report unknown — the wired
   requirement stands either way.
 
-## Launcher + systemd (recommended)
+## Standalone binary
+
+Releases ship single-file executables built with Node's Single Executable Application
+(SEA) support: the server bundle, the web UI, and the Node runtime are embedded in one
+~90–130 MB binary per target (`windows-x64`, `macos-arm64`, `macos-x64`, `linux-x64`,
+`linux-arm64`). Built by GitHub Actions from the pushed tag — see `RELEASING.md` at the
+repo root for the pipeline, and [security](security.md#release-integrity) for
+checksums/attestations.
+
+Run it and the browser opens `http://127.0.0.1:8731/trapline/`; Ctrl+C stops it.
+Per-OS first-run notes (SmartScreen, Gatekeeper quarantine) are in the
+[user guide](../user/getting-started.md#download-and-run).
+
+The binary accepts `--port <n>`, `--host <addr>`, `--data-dir <dir>`, `--no-browser`,
+`--version`, `--help`, each with an environment equivalent — see
+[configuration](configuration.md). Data directory defaults differ from source installs:
+`%LOCALAPPDATA%\Trapline` (Windows), `~/Library/Application Support/Trapline` (macOS),
+`$XDG_DATA_HOME/trapline` or `~/.local/share/trapline` (Linux).
+
+### Auto-start on boot/login
+
+The binary monitors only while running, so for an always-on vantage point register it
+with the OS. All three recipes use `--no-browser` so a login doesn't spawn a tab.
+
+**Windows — Task Scheduler:** create a task triggered **At log on** with the action
+`C:\path\to\trapline-vX.Y.Z-windows-x64.exe --no-browser`. In the task settings,
+disable "Stop the task if it runs longer than". A console window will be present while
+it runs (it is the process).
+
+**macOS — launchd LaunchAgent:** save as
+`~/Library/LaunchAgents/tech.l-small.trapline.plist`, then
+`launchctl load ~/Library/LaunchAgents/tech.l-small.trapline.plist`:
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>tech.l-small.trapline</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/Users/you/Applications/trapline-vX.Y.Z-macos-arm64</string>
+    <string>--no-browser</string>
+  </array>
+  <key>RunAtLoad</key><true/>
+  <key>KeepAlive</key><true/>
+</dict>
+</plist>
+```
+
+**Linux — systemd user unit:** save as `~/.config/systemd/user/trapline.service`, then
+`systemctl --user enable --now trapline` (and `loginctl enable-linger $USER` so it
+starts at boot without a login):
+
+```ini
+[Unit]
+Description=Trapline ISP monitor
+After=network-online.target
+
+[Service]
+ExecStart=%h/bin/trapline-vX.Y.Z-linux-x64 --no-browser
+Restart=on-failure
+
+[Install]
+WantedBy=default.target
+```
+
+When upgrading, replace the binary (or repoint the unit/plist/task) — the data
+directory is independent of the executable, so measurements carry over.
+
+## Launcher + systemd (recommended for a dedicated Linux box)
 
 ```bash
 ./trapline build     # npm install, typecheck, tests, web build
@@ -87,12 +164,15 @@ npm run typecheck
 
 ## Environment
 
-See the [configuration reference](configuration.md) for `TRAPLINE_DATA_DIR`,
-`TRAPLINE_HOST`, `TRAPLINE_PORT`, `LOG_LEVEL`, and `TRAPLINE_DEBUG`.
+See the [configuration reference](configuration.md) for the CLI flags and for
+`TRAPLINE_DATA_DIR`, `TRAPLINE_HOST`, `TRAPLINE_PORT`, `TRAPLINE_NO_BROWSER`,
+`LOG_LEVEL`, and `TRAPLINE_DEBUG`.
 
 ## Backup & restore
 
-All state is the single SQLite database in the data directory (`data/trapline.db` plus
-its `-wal`/`-shm` companions). To back up safely while running, use
-`sqlite3 data/trapline.db ".backup backup.db"`; to move an installation, stop the
-service and copy the data directory.
+All state is the single SQLite database in the data directory (`trapline.db` plus its
+`-wal`/`-shm` companions; see [configuration](configuration.md) for the per-platform
+default locations). To back up safely while running, use
+`sqlite3 <data-dir>/trapline.db ".backup backup.db"`; to move an installation — even
+across install methods or operating systems — stop Trapline and copy the data
+directory.

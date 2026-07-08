@@ -11,11 +11,14 @@ language.
 
 ## I just want to use it — the User Guide
 
-Written for everyone; no networking background needed.
+Written for everyone; no networking background needed. The quickest start is the
+standalone download for Windows, macOS, or Linux from the
+[releases page](https://github.com/l-small-tech/Trapline/releases/latest) — one file,
+nothing to install.
 
 | Document | What it covers |
 |---|---|
-| [Getting started](user/getting-started.md) | What you need, how to install, first-run setup |
+| [Getting started](user/getting-started.md) | What you need, the standalone download, first-run setup |
 | [The Dashboard](user/dashboard.md) | Reading the main screen: status, tiles, charts, monitoring modes |
 | [Reports](user/reports.md) | Exporting evidence and using it with your ISP |
 | [Tools](user/tools.md) | "Is it me or the ISP, right now?" — the on-demand checks |
@@ -30,7 +33,7 @@ Written for everyone; no networking background needed.
 | [Architecture](technical/architecture.md) | Modules, data flow, database schema |
 | [Configuration](technical/configuration.md) | Environment variables and persisted settings reference |
 | [Methodology](technical/methodology.md) | The auditable spec: detection thresholds, fault classification, statistics — the document to hand your ISP |
-| [Deployment](technical/deployment.md) | The launcher, systemd, Docker, nginx, auto-update |
+| [Deployment](technical/deployment.md) | The standalone binary, launcher, systemd, Docker, nginx, auto-update |
 | [API](technical/api.md) | REST endpoints and the live event stream |
 | [Security](technical/security.md) | Threat model and hardening notes |
 

@@ -16,6 +16,23 @@ four daily speed tests take about 20 seconds each at random times. If you notice
 test while gaming, that's the worst of it. Homes with data caps can use Eco mode
 (see [Data usage](data-usage.md)).
 
+## Windows (or macOS) warns me about the downloaded program. Is it safe?
+
+The warning appears because the standalone Trapline program isn't code-signed
+(Windows) or notarized by Apple (macOS) — both require paid certificates that this free
+project doesn't buy. It does *not* mean anything harmful was found. On Windows, click
+**More info → Run anyway** on the SmartScreen prompt. On macOS, remove the quarantine
+flag once in Terminal: `xattr -d com.apple.quarantine <the downloaded file>`.
+
+If you'd rather verify than trust: every release includes a `SHA256SUMS.txt` file —
+compare your download's checksum against it (`sha256sum -c SHA256SUMS.txt
+--ignore-missing`, or `shasum -a 256 -c` on macOS). Better still, each binary carries a
+cryptographic *provenance attestation* proving it was built by GitHub's own servers
+directly from Trapline's published source code — verify it with the GitHub CLI:
+`gh attestation verify <the downloaded file> --repo l-small-tech/Trapline`. That's a
+stronger guarantee than a code-signing certificate, which only proves someone paid for
+a certificate.
+
 ## Can I run Trapline over WiFi?
 
 It will run, but you shouldn't — connect the monitoring computer to your router with an
@@ -64,7 +81,11 @@ internet connection: regular rounds, every check logged, nothing relied on from 
 
 ## Something's not working — where do I look?
 
-Run `./trapline status` in a terminal on the monitoring computer. It reports whether the
-service is running and healthy. `./trapline logs` shows what the service is doing;
-`./trapline restart` fixes most transient problems. If the Settings page warns that `mtr`
-is missing, install it with `sudo apt install mtr-tiny`.
+If you use the standalone download, look at the console window it runs in — that's where
+Trapline logs what it's doing — and restarting the program fixes most transient problems.
+If you installed it as a Linux service, run `./trapline status` in a terminal on the
+monitoring computer: it reports whether the service is running and healthy;
+`./trapline logs` shows what the service is doing and `./trapline restart` restarts it.
+If the Settings page warns that `mtr` is missing, install it with
+`sudo apt install mtr-tiny` (Linux) or `brew install mtr` (macOS); there is no mtr for
+Windows, and Trapline simply skips that evidence there.

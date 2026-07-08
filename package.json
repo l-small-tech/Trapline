@@ -1,6 +1,6 @@
 {
   "name": "trapline",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "description": "Trapline \u2014 community ISP service-quality monitor. Checks your line on a regular schedule and builds evidence-grade reports.",
   "license": "GPL-3.0-or-later",

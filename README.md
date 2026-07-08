@@ -20,12 +20,25 @@ your router?" and the conversation goes nowhere. Trapline replaces anecdotes wit
 - **"Speed tests averaged 61% of the advertised 250 Mbps"** — measured on a schedule, not
   cherry-picked.
 
-## Quick start
+## Download (easiest)
 
-Requirements: Linux, Node.js 22+ (24 recommended), `ping` (standard), `mtr` (recommended:
-`sudo apt install mtr-tiny`), and a machine **wired to the router with an Ethernet
-cable** — WiFi mixes its own interference into the evidence, and Trapline shows a warning
-banner if it detects it's monitoring over WiFi.
+Grab the standalone executable for your system from the
+[latest release](https://github.com/l-small-tech/Trapline/releases/latest) — Windows, macOS
+(Apple Silicon and Intel), and Linux (x64 and ARM). Run it and your browser opens the
+dashboard at **http://127.0.0.1:8731/trapline/**. No installer, no Docker, no Node.js — the
+~100 MB file embeds everything. First-run notes (Windows SmartScreen, macOS Gatekeeper),
+data locations, and checksum/provenance verification are in each release's notes.
+
+For best evidence run it on a machine **wired to the router with an Ethernet cable** — WiFi
+mixes its own interference into the evidence, and Trapline shows a warning banner if it
+detects it's monitoring over WiFi. `mtr` is optional but enables route evidence
+(`sudo apt install mtr-tiny` / `brew install mtr`; not available on Windows, where `tracert`
+covers discovery). Useful flags: `--port`, `--data-dir`, `--no-browser`, `--help`.
+
+## Quick start from source (Linux service)
+
+Requirements: Linux, Node.js 24+, `ping` (standard), `mtr` (recommended:
+`sudo apt install mtr-tiny`).
 
 ```bash
 ./trapline build     # install deps, typecheck, run tests, build the web UI
@@ -129,7 +142,7 @@ trapline/
 │       │                     evidence capture, hourly rollups + retention, usage ledger
 │       ├── speedtest/        multi-stream HTTP engine + loaded-latency (bufferbloat)
 │       ├── api/              REST routes, SSE live stream, report generation (HTML/CSV/JSON)
-│       └── db/               better-sqlite3 (WAL), versioned migrations, all SQL in repo.ts
+│       └── db/               node:sqlite (WAL), versioned migrations, all SQL in repo.ts
 └── web/     (React 18 + Vite + uPlot)
     └── src/pages/            Dashboard, Reports, Tools, Usage, Settings
 ```

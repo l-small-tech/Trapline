@@ -52,4 +52,6 @@ This page also warns you about setup problems that weaken your evidence:
 - **Network port slower than your plan** — a computer with an old 100 Mbps port can't
   measure a faster plan; its speed tests are capped by the port, not the ISP.
 - **`mtr` not installed** — without it, Trapline can't record the hop-by-hop route
-  evidence during problems. Fix with `sudo apt install mtr-tiny`.
+  evidence during problems. Fix with `sudo apt install mtr-tiny` (Linux) or
+  `brew install mtr` (macOS); there's no mtr for Windows, so this warning is expected
+  there.

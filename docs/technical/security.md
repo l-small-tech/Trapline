@@ -92,6 +92,25 @@ measurement data never leaves the machine unless you export it.
 - If you use `deploy/auto-update.sh`, understand it deploys whatever is on
   `origin/main` of its clone — treat push access to that branch as deploy access.
 
+## Release integrity
+
+The standalone binaries are built **only** by GitHub Actions from the pushed release
+tag (`.github/workflows/release.yml`) — never on a developer machine — by injecting the
+bundled application into an official, checksum-verified nodejs.org binary. Every
+release ships `SHA256SUMS.txt`, and each binary carries a GitHub build-provenance
+attestation binding it to the exact workflow, commit, and tag that produced it:
+
+```bash
+sha256sum -c SHA256SUMS.txt --ignore-missing
+gh attestation verify trapline-vX.Y.Z-linux-x64 --repo l-small-tech/Trapline
+```
+
+The binaries are *not* code-signed for Windows or notarized for macOS (both require
+paid certificates), which is why SmartScreen/Gatekeeper warn on first run; the
+attestation is the stronger check — it proves provenance from the public source tree,
+not just possession of a certificate. See `RELEASING.md` at the repo root for the full
+pipeline.
+
 ## Reporting a vulnerability
 
 Please open a GitHub security advisory (or a private report to the maintainer) rather

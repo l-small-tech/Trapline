@@ -2,6 +2,9 @@
 #
 # Run with host networking (see docker-compose.yml): the monitor must see the
 # real LAN gateway and ISP first hop, not the Docker bridge.
+#
+# The database is Node's built-in node:sqlite, so npm ci needs no compiler
+# toolchain — every stage runs on the slim image as-is.
 
 # ---- Stage 1: install all deps + build the web UI ----------------------------
 FROM node:24-bookworm-slim AS build
