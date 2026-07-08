@@ -14,6 +14,7 @@ const SEV_COLOR: Record<string, string> = {
 const KIND_LABEL: Record<string, string> = {
   outage: 'Outage',
   latency_spike: 'Latency spike',
+  high_latency: 'High latency',
   packet_loss: 'Packet loss',
   dns_failure: 'DNS failure',
   speed_degradation: 'Slow speed',

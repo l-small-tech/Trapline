@@ -349,6 +349,8 @@ function methodology(payload: ReportPayload): string {
     <li><strong>Packet loss:</strong> &ge;5% loss over the trailing 60 probes on &ge;2 targets.</li>
     <li><strong>Latency spike:</strong> the 60&nbsp;s rolling median exceeds max(2× the 1-hour
       baseline, baseline+30&nbsp;ms) for 30&nbsp;s on &ge;2 targets.</li>
+    <li><strong>High latency:</strong> the 60&nbsp;s rolling median exceeds the configured
+      absolute threshold (default 120&nbsp;ms) for 30&nbsp;s on &ge;2 targets.</li>
     <li><strong>DNS failure:</strong> two consecutive failed (or &gt;2&nbsp;s) resolutions.</li>
     <li><strong>Speed degradation:</strong> a test measuring below ${Math.round(
       100 * 0.5,

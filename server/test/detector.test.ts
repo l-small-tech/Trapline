@@ -134,6 +134,58 @@ test('latency spike opens when median doubles vs baseline and closes on recovery
   assert.ok(closed.some((e) => e.kind === 'latency_spike'), 'latency spike closed');
 });
 
+test('high latency opens when median exceeds the default 120ms threshold and closes on recovery', () => {
+  const d = makeDetector();
+  let t = healthy(d, 0, 60);
+  // 90s of 150ms RTT on all WAN targets (above the 120ms default). The
+  // rolling 60s median crosses the threshold ~30s in, then must sustain 30s.
+  for (let i = 0; i < 90; i++) {
+    round(d, t + i * 1000, { 2: 150, 3: 150, 4: 150 });
+  }
+  t += 90_000;
+  const e = opened.find((ev) => ev.kind === 'high_latency');
+  assert.ok(e, 'high latency opened');
+  assert.equal((e!.detail as { thresholdMs: number }).thresholdMs, 120);
+
+  // Recovery: back to 20ms for 3 minutes.
+  t = healthy(d, t, 180);
+  assert.ok(closed.some((ev) => ev.kind === 'high_latency'), 'high latency closed');
+});
+
+test('no high latency event while the median stays under the threshold', () => {
+  const d = makeDetector();
+  const t = healthy(d, 0, 60);
+  for (let i = 0; i < 120; i++) {
+    round(d, t + i * 1000, { 2: 100, 3: 100, 4: 100 });
+  }
+  assert.equal(opened.filter((e) => e.kind === 'high_latency').length, 0);
+});
+
+test('high latency threshold is settable and 0 disables the alert', () => {
+  const d = makeDetector();
+  d.setLatencyThreshold(200);
+  let t = healthy(d, 0, 60);
+  for (let i = 0; i < 120; i++) {
+    round(d, t + i * 1000, { 2: 150, 3: 150, 4: 150 });
+  }
+  t += 120_000;
+  assert.equal(opened.filter((e) => e.kind === 'high_latency').length, 0, '150ms under a 200ms threshold');
+
+  for (let i = 0; i < 90; i++) {
+    round(d, t + i * 1000, { 2: 250, 3: 250, 4: 250 });
+  }
+  t += 90_000;
+  assert.ok(opened.some((e) => e.kind === 'high_latency'), '250ms over a 200ms threshold');
+
+  const d2 = makeDetector();
+  d2.setLatencyThreshold(0);
+  const t2 = healthy(d2, 0, 60);
+  for (let i = 0; i < 120; i++) {
+    round(d2, t2 + i * 1000, { 2: 500, 3: 500, 4: 500 });
+  }
+  assert.equal(opened.filter((e) => e.kind === 'high_latency').length, 0, 'disabled with 0');
+});
+
 test('dns failure opens after 2 consecutive failures and closes after 2 successes', () => {
   const d = makeDetector();
   healthy(d, 0, 10);

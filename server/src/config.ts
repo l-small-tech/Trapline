@@ -98,6 +98,7 @@ export const DEFAULT_SETTINGS = {
   speedtestDownUrl: 'https://speed.cloudflare.com/__down',
   speedtestUpUrl: 'https://speed.cloudflare.com/__up',
   speedDegradationFraction: 0.5,
+  latencyThresholdMs: 120,
   retentionPingDays: 14,
   retentionDnsHttpDays: 30,
 };

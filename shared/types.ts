@@ -21,6 +21,7 @@ export type ConnectionState = 'up' | 'degraded' | 'down';
 export type EventKind =
   | 'outage'
   | 'latency_spike'
+  | 'high_latency'
   | 'packet_loss'
   | 'dns_failure'
   | 'speed_degradation'
@@ -172,6 +173,8 @@ export interface Settings {
   speedtestUpUrl: string;
   /** Measured-below-this-fraction of the advertised plan raises a speed_degradation event. */
   speedDegradationFraction: number;
+  /** Sustained RTT above this raises a high_latency event. 0 disables. */
+  latencyThresholdMs: number;
   retentionPingDays: number;
   retentionDnsHttpDays: number;
 }

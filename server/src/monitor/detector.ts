@@ -18,6 +18,9 @@
  *  - Latency spike: 60s rolling median above max(2x 1-hour EWMA baseline,
  *    baseline+30ms) sustained >=30s on >=2 WAN targets; closes after 60s
  *    below 1.3x baseline.
+ *  - High latency: 60s rolling median above the user-set absolute threshold
+ *    (default 120ms, 0 disables) sustained >=30s on >=2 WAN targets; closes
+ *    after 60s below 90% of the threshold on all targets.
  *  - DNS failure: 2 consecutive system-resolver failures (or >2s answers);
  *    closes on 2 consecutive successes.
  */
@@ -64,6 +67,10 @@ const LATENCY_MEDIAN_WINDOW_MS = 60_000;
 const LATENCY_SUSTAIN_MS = 30_000;
 const LATENCY_CLOSE_MS = 60_000;
 const LATENCY_ABS_MARGIN_MS = 30;
+const HIGH_LATENCY_DEFAULT_MS = 120;
+const HIGH_LATENCY_SUSTAIN_MS = 30_000;
+const HIGH_LATENCY_CLOSE_MS = 60_000;
+const HIGH_LATENCY_CLOSE_FRACTION = 0.9;
 const DNS_FAIL_COUNT = 2;
 const DNS_SLOW_MS = 2000;
 const SUGGEST_EVENT_COUNT = 3;
@@ -83,6 +90,10 @@ interface TargetState {
   spikeSince: number | null;
   /** When the current below-close-threshold stretch started, or null. */
   calmSince: number | null;
+  /** When the median went above the absolute high-latency threshold, or null. */
+  highSince: number | null;
+  /** When the median dropped below the high-latency close threshold, or null. */
+  highCalmSince: number | null;
   lastRtt: number | null;
   lastTs: number | null;
   samplesUnderClosePct: number;
@@ -100,6 +111,7 @@ export class Detector {
   private outage: OpenState | null = null;
   private lossEvent: OpenState | null = null;
   private latencyEvent: OpenState | null = null;
+  private highLatencyEvent: OpenState | null = null;
   private dnsEvent: OpenState | null = null;
   private dnsConsecutiveFails = 0;
   private dnsConsecutiveOk = 0;
@@ -110,6 +122,7 @@ export class Detector {
   constructor(
     private cb: DetectorCallbacks,
     private pingIntervalSec: number,
+    private latencyThresholdMs: number = HIGH_LATENCY_DEFAULT_MS,
   ) {}
 
   /** (Re)register the probed targets. Call on start and on mode change. */
@@ -131,6 +144,8 @@ export class Detector {
           baseline: new Ewma(2 / (samplesPerHour + 1)),
           spikeSince: null,
           calmSince: null,
+          highSince: null,
+          highCalmSince: null,
           lastRtt: null,
           lastTs: null,
           samplesUnderClosePct: 0,
@@ -143,6 +158,11 @@ export class Detector {
 
   setPingInterval(sec: number): void {
     this.pingIntervalSec = sec;
+  }
+
+  /** Absolute high-latency alert threshold in ms; <=0 disables the alert. */
+  setLatencyThreshold(ms: number): void {
+    this.latencyThresholdMs = Number.isFinite(ms) && ms > 0 ? ms : 0;
   }
 
   /** WAN targets that participate in detection (custom targets excluded). */
@@ -173,7 +193,12 @@ export class Detector {
   }
 
   hasOpenDegradation(): boolean {
-    return this.lossEvent !== null || this.latencyEvent !== null || this.dnsEvent !== null;
+    return (
+      this.lossEvent !== null ||
+      this.latencyEvent !== null ||
+      this.highLatencyEvent !== null ||
+      this.dnsEvent !== null
+    );
   }
 
   // ------------------------------------------------------------------ pings
@@ -213,6 +238,7 @@ export class Detector {
     if (!state.target.isLan && state.target.kind !== 'custom') {
       this.evaluateLoss(sample.ts);
       this.evaluateLatency(state, sample.ts);
+      this.evaluateHighLatency(state, sample.ts);
     }
   }
 
@@ -482,6 +508,75 @@ export class Detector {
           startedAt,
           endedAt: ts,
           summary: 'Latency spike episode',
+          detail: { ...detail, durationMs: ts - startedAt },
+        });
+      }
+    }
+  }
+
+  // --------------------------------------------- high latency (absolute)
+
+  private evaluateHighLatency(state: TargetState, ts: number): void {
+    const threshold = this.latencyThresholdMs;
+    if (threshold <= 0) return; // disabled in settings
+    const rtts = state.recent.map((r) => r.rtt);
+    const med = median(rtts);
+    if (med === null || rtts.length < 5) return;
+
+    if (med > threshold) {
+      if (state.highSince === null) state.highSince = ts;
+      state.highCalmSince = null;
+    } else if (med < HIGH_LATENCY_CLOSE_FRACTION * threshold) {
+      if (state.highCalmSince === null) state.highCalmSince = ts;
+      state.highSince = null;
+    } else {
+      state.highSince = null;
+    }
+
+    const wan = this.wanStates();
+    const needed = Math.min(2, wan.length);
+
+    if (!this.highLatencyEvent) {
+      if (this.outage) return;
+      const high = wan.filter(
+        (s) => s.highSince !== null && ts - s.highSince >= HIGH_LATENCY_SUSTAIN_MS,
+      );
+      if (high.length >= needed) {
+        const startedAt = Math.min(...high.map((s) => s.highSince!));
+        this.highLatencyEvent = {
+          startedAt,
+          detail: {
+            thresholdMs: threshold,
+            targets: high.map((s) => ({
+              host: s.target.host,
+              medianMs: Math.round((median(s.recent.map((r) => r.rtt)) ?? 0) * 10) / 10,
+            })),
+          },
+        };
+        this.emitOpen({
+          kind: 'high_latency',
+          severity: 'minor',
+          classification: this.classifyDegradation(),
+          startedAt,
+          summary: `Latency is above the ${threshold} ms alert threshold`,
+          detail: this.highLatencyEvent.detail,
+        });
+      }
+    } else {
+      const calm = wan.filter(
+        (s) => s.highCalmSince !== null && ts - s.highCalmSince >= HIGH_LATENCY_CLOSE_MS,
+      );
+      if (calm.length >= wan.length) {
+        const startedAt = this.highLatencyEvent.startedAt;
+        const detail = this.highLatencyEvent.detail;
+        this.highLatencyEvent = null;
+        this.cb.onClose({
+          kind: 'high_latency',
+          severity: this.severityFromDuration(ts - startedAt),
+          classification: this.classifyDegradation(),
+          startedAt,
+          endedAt: ts,
+          summary: `High latency episode (above ${threshold} ms)`,
           detail: { ...detail, durationMs: ts - startedAt },
         });
       }

@@ -77,6 +77,7 @@ export class Scheduler {
         onSuggestFullCapture: (reason) => this.handleSuggestion(reason),
       },
       MODES[this.getMode()].pingIntervalSec,
+      this.repo.getSettings().latencyThresholdMs,
     );
   }
 

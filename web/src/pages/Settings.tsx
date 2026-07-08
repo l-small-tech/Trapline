@@ -110,6 +110,19 @@ export function SettingsPage() {
             onChange={(e) => setSettings({ ...settings, speedDegradationFraction: Number(e.target.value) })}
           />
         </div>
+        <div className="form-row">
+          <label>
+            High-latency alert threshold (ms)
+            <Tooltip text="If round-trip latency stays above this for 30 seconds on multiple targets, a 'high latency' event is recorded. Default 120 ms. Set to 0 to disable." />
+          </label>
+          <input
+            type="number"
+            min="0"
+            step="10"
+            value={settings.latencyThresholdMs}
+            onChange={(e) => setSettings({ ...settings, latencyThresholdMs: Number(e.target.value) })}
+          />
+        </div>
         <div className="btn-row">
           <button type="button" className="btn primary" onClick={() => void save()}>
             Save

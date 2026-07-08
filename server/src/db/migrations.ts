@@ -138,6 +138,29 @@ const MIGRATIONS: { version: number; sql: string }[] = [
       );
     `,
   },
+  {
+    // Add the 'high_latency' event kind. SQLite cannot alter a CHECK
+    // constraint, so the events table is rebuilt (FKs are disabled around
+    // migrations so event_evidence rows survive the drop/rename).
+    version: 2,
+    sql: `
+      CREATE TABLE events_new (
+        id             INTEGER PRIMARY KEY,
+        kind           TEXT NOT NULL CHECK (kind IN
+          ('outage','latency_spike','high_latency','packet_loss','dns_failure','speed_degradation','monitor_gap')),
+        severity       TEXT NOT NULL CHECK (severity IN ('info','minor','major','critical')),
+        classification TEXT NOT NULL CHECK (classification IN ('isp','lan','upstream','unknown')),
+        started_at     INTEGER NOT NULL,
+        ended_at       INTEGER,        -- NULL = ongoing
+        summary        TEXT NOT NULL,
+        detail         TEXT NOT NULL DEFAULT '{}'
+      );
+      INSERT INTO events_new SELECT id, kind, severity, classification, started_at, ended_at, summary, detail FROM events;
+      DROP TABLE events;
+      ALTER TABLE events_new RENAME TO events;
+      CREATE INDEX idx_events_started ON events(started_at);
+    `,
+  },
 ];
 
 export function migrate(db: Db): void {
@@ -150,14 +173,21 @@ export function migrate(db: Db): void {
       (r) => r.version,
     ),
   );
-  for (const m of MIGRATIONS) {
-    if (applied.has(m.version)) continue;
-    db.transaction(() => {
-      db.exec(m.sql);
-      db.prepare('INSERT INTO schema_migrations (version, applied_at) VALUES (?, ?)').run(
-        m.version,
-        Date.now(),
-      );
-    })();
+  // Table rebuilds must not cascade-delete referencing rows or fail FK
+  // checks mid-migration (the standard SQLite alter-table procedure).
+  db.pragma('foreign_keys = OFF');
+  try {
+    for (const m of MIGRATIONS) {
+      if (applied.has(m.version)) continue;
+      db.transaction(() => {
+        db.exec(m.sql);
+        db.prepare('INSERT INTO schema_migrations (version, applied_at) VALUES (?, ?)').run(
+          m.version,
+          Date.now(),
+        );
+      })();
+    }
+  } finally {
+    db.pragma('foreign_keys = ON');
   }
 }

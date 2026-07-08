@@ -13,10 +13,67 @@ export interface ChartSeries {
   pointsOnly?: boolean;
 }
 
+const WHEEL_ZOOM_FACTOR = 0.75;
+
+/**
+ * Scroll-wheel zoom on the x axis, centered on the cursor. Drag-select zoom
+ * is uPlot's default; double-click resets. `onZoomChange` reports whether
+ * the user is currently zoomed in, so data updates can preserve the view.
+ */
+function wheelZoomPlugin(onZoomChange: (zoomed: boolean) => void): uPlot.Plugin {
+  return {
+    hooks: {
+      setSelect: [(u) => {
+        if (u.select.width > 0) onZoomChange(true);
+      }],
+      ready: [(u) => {
+        u.over.addEventListener('dblclick', () => onZoomChange(false));
+        u.over.addEventListener(
+          'wheel',
+          (e) => {
+            e.preventDefault();
+            const xs = u.data[0];
+            if (!xs || xs.length < 2) return;
+            const dataMin = xs[0]!;
+            const dataMax = xs[xs.length - 1]!;
+            const { min, max } = u.scales.x!;
+            if (min == null || max == null) return;
+            const cursorVal =
+              u.cursor.left != null && u.cursor.left >= 0
+                ? u.posToVal(u.cursor.left, 'x')
+                : (min + max) / 2;
+            const oldRange = max - min;
+            const newRange =
+              e.deltaY < 0 ? oldRange * WHEEL_ZOOM_FACTOR : oldRange / WHEEL_ZOOM_FACTOR;
+            let newMin = cursorVal - ((cursorVal - min) / oldRange) * newRange;
+            let newMax = newMin + newRange;
+            if (newMin < dataMin) {
+              newMin = dataMin;
+              newMax = Math.min(dataMax, newMin + newRange);
+            }
+            if (newMax > dataMax) {
+              newMax = dataMax;
+              newMin = Math.max(dataMin, newMax - newRange);
+            }
+            if (newMax - newMin >= dataMax - dataMin) {
+              onZoomChange(false);
+              u.setScale('x', { min: dataMin, max: dataMax });
+            } else {
+              onZoomChange(true);
+              u.setScale('x', { min: newMin, max: newMax });
+            }
+          },
+          { passive: false },
+        );
+      }],
+    },
+  };
+}
+
 /**
  * uPlot wrapper: canvas rendering (handles 100k+ points), crosshair +
  * built-in legend as the hover layer, theme-aware chrome, container-width
- * responsive.
+ * responsive. Drag or scroll to zoom the x axis; double-click to reset.
  */
 export function TimeChart({
   data,
@@ -31,6 +88,8 @@ export function TimeChart({
 }) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const plotRef = useRef<uPlot | null>(null);
+  // While the user is zoomed in, live data updates must not reset the view.
+  const zoomedRef = useRef(false);
 
   const opts = useMemo((): uPlot.Options => {
     const axisColor = cssVar('--muted');
@@ -41,6 +100,11 @@ export function TimeChart({
       cursor: { points: { size: 7 } },
       legend: { live: true },
       scales: { x: { time: true } },
+      plugins: [
+        wheelZoomPlugin((zoomed) => {
+          zoomedRef.current = zoomed;
+        }),
+      ],
       axes: [
         {
           stroke: axisColor,
@@ -76,6 +140,7 @@ export function TimeChart({
   useEffect(() => {
     const wrap = wrapRef.current;
     if (!wrap) return;
+    zoomedRef.current = false;
     const plot = new uPlot(opts, data, wrap);
     plotRef.current = plot;
     const resize = () => plot.setSize({ width: wrap.clientWidth, height });
@@ -92,8 +157,15 @@ export function TimeChart({
   }, [opts]);
 
   useEffect(() => {
-    plotRef.current?.setData(data);
+    plotRef.current?.setData(data, !zoomedRef.current);
   }, [data]);
 
-  return <div ref={wrapRef} className="uplot-wrap" />;
+  return (
+    <div>
+      <div ref={wrapRef} className="uplot-wrap" />
+      <div className="dim" style={{ fontSize: 11, marginTop: 4 }}>
+        drag or scroll to zoom · double-click to reset
+      </div>
+    </div>
+  );
 }

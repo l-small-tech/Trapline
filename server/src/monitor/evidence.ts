@@ -11,7 +11,7 @@ import type { Mode } from '../../../shared/types.js';
 import type { UsageLedger } from './usage.js';
 
 const PING_WINDOW_MS = 120_000;
-const EVIDENCE_EVENT_KINDS = new Set(['outage', 'latency_spike', 'packet_loss']);
+const EVIDENCE_EVENT_KINDS = new Set(['outage', 'latency_spike', 'high_latency', 'packet_loss']);
 
 export class EvidenceCollector {
   private lastMtrAt = 0;

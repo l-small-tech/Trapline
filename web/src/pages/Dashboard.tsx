@@ -7,7 +7,7 @@ import type {
   SpeedTestResult,
   SummaryStats,
 } from '../../../shared/types';
-import { api, fmtDuration } from '../api/client';
+import { api, fmtDuration, fmtTime } from '../api/client';
 import { EventsTimeline } from '../components/EventsTimeline';
 import { ModeSwitcher } from '../components/ModeSwitcher';
 import { Sparkline } from '../components/Sparkline';
@@ -18,9 +18,22 @@ import { TimeChart } from '../components/TimeChart';
 import { Tooltip } from '../components/Tooltip';
 import { useLiveMessage, useStatus } from '../hooks/useLive';
 
+const MINUTE = 60_000;
 const HOUR = 3_600_000;
 const DAY = 24 * HOUR;
-const LIVE_WINDOW_MS = 3 * HOUR;
+
+/** Rolling live window, or a fixed historical range (live appends paused). */
+type ChartRange =
+  | { kind: 'live'; windowMs: number }
+  | { kind: 'custom'; from: number; to: number };
+
+const LIVE_WINDOWS: { label: string; ms: number }[] = [
+  { label: '15 min', ms: 15 * MINUTE },
+  { label: '1 h', ms: HOUR },
+  { label: '3 h', ms: 3 * HOUR },
+  { label: '12 h', ms: 12 * HOUR },
+  { label: '24 h', ms: DAY },
+];
 
 export function Dashboard() {
   const { status } = useStatus();
@@ -29,6 +42,7 @@ export function Dashboard() {
   const [settings, setSettings] = useState<Settings | null>(null);
   const [projections, setProjections] = useState<Record<Mode, number> | undefined>();
   const [selectedTarget, setSelectedTarget] = useState<number | null>(null);
+  const [chartRange, setChartRange] = useState<ChartRange>({ kind: 'live', windowMs: 3 * HOUR });
   const [chartPoints, setChartPoints] = useState<[number, number | null][]>([]);
   // Rolling per-target buffers feeding the sparklines.
   const sparkBuffers = useRef(new Map<number, (number | null)[]>());
@@ -67,14 +81,16 @@ export function Dashboard() {
   useEffect(() => {
     if (selectedTarget === null) return;
     const now = Date.now();
+    const from = chartRange.kind === 'live' ? now - chartRange.windowMs : chartRange.from;
+    const to = chartRange.kind === 'live' ? now : chartRange.to;
     void api
-      .pingSamples(now - LIVE_WINDOW_MS, now, 3000)
+      .pingSamples(from, to, 3000)
       .then((groups) => {
         const g = groups.find((x) => x.targetId === selectedTarget);
         setChartPoints(g?.points ?? []);
       })
       .catch(() => {});
-  }, [selectedTarget]);
+  }, [selectedTarget, chartRange]);
 
   // Live appends.
   const onSamples = useCallback(
@@ -87,15 +103,17 @@ export function Dashboard() {
         sparkBuffers.current.set(p.targetId, buf);
       }
       setSparkTick((v) => v + 1);
+      // A fixed historical range doesn't move with incoming samples.
+      if (chartRange.kind !== 'live') return;
       setChartPoints((prev) => {
         const mine = data.ping.filter((p) => p.targetId === selectedTarget);
         if (mine.length === 0) return prev;
-        const cutoff = Date.now() - LIVE_WINDOW_MS;
+        const cutoff = Date.now() - chartRange.windowMs;
         const next = [...prev, ...mine.map((p): [number, number | null] => [p.ts, p.rttMs])];
         return next.filter(([ts]) => ts >= cutoff);
       });
     },
-    [selectedTarget],
+    [selectedTarget, chartRange],
   );
   useLiveMessage('samples', onSamples);
 
@@ -184,6 +202,7 @@ export function Dashboard() {
             </div>
           </div>
         )}
+        <ChartRangePicker value={chartRange} onChange={setChartRange} />
         <TimeChart
           data={chartData}
           series={[
@@ -244,6 +263,64 @@ export function Dashboard() {
       </div>
 
       <div className="section">{status && <ModeSwitcher status={status} projections={projections} />}</div>
+    </div>
+  );
+}
+
+function ChartRangePicker({
+  value,
+  onChange,
+}: {
+  value: ChartRange;
+  onChange: (r: ChartRange) => void;
+}) {
+  const [customFrom, setCustomFrom] = useState('');
+  const [customTo, setCustomTo] = useState('');
+
+  const applyCustom = (): void => {
+    if (!customFrom) return;
+    const from = new Date(customFrom).getTime();
+    const to = customTo ? new Date(customTo).getTime() : Date.now();
+    if (Number.isNaN(from) || Number.isNaN(to) || from >= to) return;
+    onChange({ kind: 'custom', from, to });
+  };
+
+  return (
+    <div className="btn-row" style={{ marginBottom: 10 }}>
+      <div className="seg" role="group" aria-label="Chart time window">
+        {LIVE_WINDOWS.map((w) => (
+          <button
+            key={w.label}
+            type="button"
+            className={value.kind === 'live' && value.windowMs === w.ms ? 'active' : ''}
+            onClick={() => onChange({ kind: 'live', windowMs: w.ms })}
+          >
+            {w.label}
+          </button>
+        ))}
+      </div>
+      <span className="dim">or</span>
+      <input
+        type="datetime-local"
+        value={customFrom}
+        onChange={(e) => setCustomFrom(e.target.value)}
+        aria-label="Chart from"
+      />
+      <span className="dim">to</span>
+      <input
+        type="datetime-local"
+        value={customTo}
+        onChange={(e) => setCustomTo(e.target.value)}
+        aria-label="Chart to (empty = now)"
+      />
+      <button type="button" className="btn" disabled={!customFrom} onClick={applyCustom}>
+        Apply
+      </button>
+      {value.kind === 'custom' && (
+        <span className="chip">
+          {fmtTime(value.from)} → {fmtTime(value.to)} · live updates paused
+        </span>
+      )}
     </div>
   );
 }
