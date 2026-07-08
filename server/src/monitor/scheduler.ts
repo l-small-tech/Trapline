@@ -29,7 +29,7 @@ import { discoverTargets } from '../probes/discovery.js';
 import { timedResolve } from '../probes/dns.js';
 import { detectLinkInfo } from '../probes/netinfo.js';
 import { httpCheck } from '../probes/http.js';
-import { PingProbe } from '../probes/ping.js';
+import { createPingProbe, type PingProbeLike } from '../probes/ping.js';
 import type { SpeedTestEngine } from '../speedtest/engine.js';
 import { MINUTE } from '../util/time.js';
 import { Detector, type ClosedEvent, type OpenedEvent } from './detector.js';
@@ -46,7 +46,7 @@ const GAP_TICK_MS = 5000;
 
 export class Scheduler {
   readonly detector: Detector;
-  private probes: PingProbe[] = [];
+  private probes: PingProbeLike[] = [];
   private timers: NodeJS.Timeout[] = [];
   private activeTargets: Target[] = [];
   private dnsHostIndex = 0;
@@ -181,7 +181,7 @@ export class Scheduler {
     this.detector.setTargets(this.activeTargets);
 
     for (const target of this.activeTargets) {
-      const probe = new PingProbe({
+      const probe = createPingProbe({
         host: target.host,
         intervalSec: cfg.pingIntervalSec,
         onLog: (m) => this.log(m),

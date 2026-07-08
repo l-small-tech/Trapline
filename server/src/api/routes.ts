@@ -4,7 +4,6 @@
  * argument arrays (never shell strings).
  */
 import type { FastifyInstance } from 'fastify';
-import { spawn } from 'node:child_process';
 import type {
   DnsBenchResult,
   HealthCheckResult,
@@ -19,7 +18,7 @@ import type { UsageLedger } from '../monitor/usage.js';
 import { BENCH_HOSTNAMES, BENCH_RESOLVERS, timedResolve } from '../probes/dns.js';
 import { httpCheck } from '../probes/http.js';
 import { runMtr } from '../probes/mtr.js';
-import { parsePingLine } from '../probes/ping.js';
+import { pingBurst } from '../probes/pingBurst.js';
 import type { SpeedTestEngine } from '../speedtest/engine.js';
 import { decimateMinMax } from '../util/stats.js';
 import { DAY } from '../util/time.js';
@@ -142,43 +141,6 @@ export interface RouteDeps {
   speedEngine: SpeedTestEngine;
   usage: UsageLedger;
   hub: SseHub;
-}
-
-/** One-shot ping burst for the Tools page (arg-array spawn, no shell). */
-async function pingBurst(
-  host: string,
-  count: number,
-): Promise<{ rtts: (number | null)[]; medianRttMs: number | null; lossPct: number }> {
-  return new Promise((resolve) => {
-    const child = spawn('ping', ['-n', '-O', '-W', '2', '-i', '0.3', '-c', String(count), host], {
-      env: { ...process.env, LANG: 'C', LC_ALL: 'C' },
-      stdio: ['ignore', 'pipe', 'ignore'],
-    });
-    const rtts: (number | null)[] = [];
-    let buf = '';
-    child.stdout.on('data', (d: Buffer) => {
-      buf += d.toString();
-      let idx;
-      while ((idx = buf.indexOf('\n')) >= 0) {
-        const line = buf.slice(0, idx);
-        buf = buf.slice(idx + 1);
-        const parsed = parsePingLine(line);
-        if (parsed.kind === 'reply') rtts.push(parsed.rttMs);
-        else if (parsed.kind === 'timeout' || (parsed.kind === 'error' && parsed.seq !== null)) rtts.push(null);
-      }
-    });
-    const timer = setTimeout(() => child.kill('SIGKILL'), (count * 2 + 10) * 1000);
-    child.on('close', () => {
-      clearTimeout(timer);
-      const ok = rtts.filter((r): r is number => r !== null).sort((a, b) => a - b);
-      resolve({
-        rtts,
-        medianRttMs: ok.length ? ok[Math.floor(ok.length / 2)]! : null,
-        lossPct: rtts.length ? ((rtts.length - ok.length) / rtts.length) * 100 : 100,
-      });
-    });
-    child.on('error', () => resolve({ rtts: [], medianRttMs: null, lossPct: 100 }));
-  });
 }
 
 /** Projected monthly WAN bytes per mode from configured cadence + recent test sizes. */
