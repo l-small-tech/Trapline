@@ -72,7 +72,7 @@ function SpeedTestTool() {
     <div className="card">
       <h3>
         Speed test
-        <Tooltip text="Measures real download/upload throughput against Cloudflare's speed servers plus how laggy the line gets under load (bufferbloat). Uses roughly 100–300 MB of data per run." />
+        <Tooltip text="Measures real download/upload throughput against Cloudflare's speed servers plus how laggy the line gets under load (bufferbloat). Uses roughly 100–300 MB of data per run. Only meaningful from a computer wired to the router — WiFi caps and destabilizes the result." />
       </h3>
       <div className="btn-row">
         <button type="button" className="btn primary" disabled={running} onClick={() => void start()}>

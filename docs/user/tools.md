@@ -21,7 +21,9 @@ queues behind the transfer. Trapline measures how much your response time worsen
 the line is loaded and grades it A (barely) to F (badly).
 
 Note: a speed test moves real data — typically 100–300 MB per run. Keep that in mind if
-you have a data cap.
+you have a data cap. And remember the result measures *this computer's* path to the
+internet: it's only evidence about your ISP if the computer is wired to the router, not
+on WiFi.
 
 ## DNS speed check
 

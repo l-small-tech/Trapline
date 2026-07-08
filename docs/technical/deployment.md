@@ -10,8 +10,11 @@ plain dev process.
 - `ping` (iputils — standard everywhere).
 - `mtr` recommended (`sudo apt install mtr-tiny`) for route evidence; Trapline runs a
   raw-socket self-test at startup and the UI warns if mtr is unavailable.
-- A wired connection to the router gives the cleanest evidence (WiFi hiccups otherwise
-  appear as `lan` noise).
+- **A wired (Ethernet) connection to the router.** WiFi interference is otherwise
+  recorded as if it were line trouble, which undermines the evidence. Trapline detects a
+  WiFi vantage point (and wired ports negotiated below the plan speed) and warns in the
+  UI; detection reads `/sys/class/net`, so inside VMs it may report unknown — the wired
+  requirement stands either way.
 
 ## Launcher + systemd (recommended)
 

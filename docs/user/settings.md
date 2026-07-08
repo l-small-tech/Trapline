@@ -44,6 +44,12 @@ More targets = slightly more measurement data used, but a richer picture.
 The monitoring **mode** (Eco / Normal / Full Capture) is switched on the Dashboard, where
 you can see its effect live.
 
-This page also warns you if `mtr` isn't installed on the monitoring computer — without
-it, Trapline can't record the hop-by-hop route evidence during problems. Fix with
-`sudo apt install mtr-tiny`.
+This page also warns you about setup problems that weaken your evidence:
+
+- **Running over WiFi** — connect the computer to the router with an Ethernet cable,
+  then click **Re-discover router & ISP hop** (WiFi interference otherwise gets recorded
+  as if it were the ISP's fault).
+- **Network port slower than your plan** — a computer with an old 100 Mbps port can't
+  measure a faster plan; its speed tests are capped by the port, not the ISP.
+- **`mtr` not installed** — without it, Trapline can't record the hop-by-hop route
+  evidence during problems. Fix with `sudo apt install mtr-tiny`.

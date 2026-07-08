@@ -61,6 +61,21 @@ export interface TargetLive {
   recentLossPct: number;
 }
 
+/**
+ * Best-effort description of the monitoring machine's own network link.
+ * WiFi contaminates ISP evidence with radio interference, so the UI warns
+ * when `wireless` is true. All fields are null when detection isn't
+ * possible (non-Linux /sys layout, exotic containers, VMs).
+ */
+export interface LinkInfo {
+  /** Interface carrying the default route, e.g. "eth0" / "wlan0". */
+  iface: string | null;
+  /** true = WiFi, false = wired, null = couldn't determine. */
+  wireless: boolean | null;
+  /** Negotiated link rate in Mbps (wired NICs only), e.g. 100 or 1000. */
+  linkSpeedMbps: number | null;
+}
+
 export interface StatusSnapshot {
   state: ConnectionState;
   stateSince: number;
@@ -70,6 +85,8 @@ export interface StatusSnapshot {
   targets: TargetLive[];
   openEvents: MonitorEvent[];
   mtrAvailable: boolean;
+  /** How this machine reaches the router — used to warn about WiFi vantage. */
+  link: LinkInfo;
   serverStartedAt: number;
   version: string;
 }

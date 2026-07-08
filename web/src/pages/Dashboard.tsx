@@ -9,6 +9,7 @@ import type {
 } from '../../../shared/types';
 import { api, fmtDuration, fmtTime } from '../api/client';
 import { EventsTimeline } from '../components/EventsTimeline';
+import { LinkAdvisory } from '../components/LinkAdvisory';
 import { ModeSwitcher } from '../components/ModeSwitcher';
 import { Sparkline } from '../components/Sparkline';
 import { SpeedHistory } from '../components/SpeedHistory';
@@ -142,6 +143,8 @@ export function Dashboard() {
         Trapline checks your connection around the clock and keeps the receipts.
       </p>
 
+      {status && <LinkAdvisory status={status} planDownMbps={settings?.plan.downMbps} />}
+
       <div className="section">{status && <StatusHero status={status} />}</div>
 
       <div className="section tiles">
@@ -249,7 +252,7 @@ export function Dashboard() {
       <div className="section card">
         <h3>
           Speed history (30 days)
-          <Tooltip text="Automatic speed tests over the last month, compared with what your plan advertises." />
+          <Tooltip text="Automatic speed tests over the last month, compared with what your plan advertises. These are trustworthy evidence only if this computer is wired to the router — WiFi limits speed on its own." />
         </h3>
         <SpeedHistory tests={tests} plan={settings?.plan ?? null} />
       </div>

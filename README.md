@@ -23,7 +23,9 @@ your router?" and the conversation goes nowhere. Trapline replaces anecdotes wit
 ## Quick start
 
 Requirements: Linux, Node.js 22+ (24 recommended), `ping` (standard), `mtr` (recommended:
-`sudo apt install mtr-tiny`).
+`sudo apt install mtr-tiny`), and a machine **wired to the router with an Ethernet
+cable** — WiFi mixes its own interference into the evidence, and Trapline shows a warning
+banner if it detects it's monitoring over WiFi.
 
 ```bash
 ./trapline build     # install deps, typecheck, run tests, build the web UI

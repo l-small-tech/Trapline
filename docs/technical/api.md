@@ -14,7 +14,7 @@ last 24 hours when omitted.
 | Method | Path | Description |
 |---|---|---|
 | GET | `/health` | Liveness: `{ok, version, uptimeSec, sseClients}` |
-| GET | `/status` | Full monitor status: state, mode, targets, mtr availability, suggestion state |
+| GET | `/status` | Full monitor status: state, mode, targets, mtr availability, and the machine's own link (`link`: interface, wired/WiFi, negotiated Mbps — `LinkInfo` in `shared/types.ts`; nulls mean "couldn't determine") |
 | GET | `/summary?from&to` | `SummaryStats` for a range: uptime, coverage, loss, latency percentiles, MOS, speed averages |
 
 ## Samples & rollups

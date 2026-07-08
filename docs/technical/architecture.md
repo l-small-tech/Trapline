@@ -54,6 +54,10 @@ api/reports.ts     ──▶ summaries from rollups + raw   ──▶ reportHtml
 - **`probes/http.ts`** — small `undici` fetches with time-to-first-byte measurement.
 - **`probes/discovery.ts`** — default gateway from `ip -j route show default`; ISP first
   hop = first *public* responding hop of an mtr trace (RFC1918/CGNAT-aware).
+- **`probes/netinfo.ts`** — detects the monitor's own vantage point: the default-route
+  interface, whether it is WiFi (`/sys/class/net/<iface>/wireless`), and the negotiated
+  wired link rate (`/sys/class/net/<iface>/speed`). Best-effort (nulls when /sys can't
+  say); surfaced as `link` on `/status` so the UI can warn about a WiFi vantage point.
 - **`monitor/scheduler.ts`** — owns all recurring work: spawns/reloads ping probes on
   target changes, DNS/HTTP timers, randomized speed-test scheduling, Full-Capture
   auto-revert, monitor-gap detection, SSE status broadcasts. On restart it closes events

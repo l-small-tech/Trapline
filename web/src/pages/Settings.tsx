@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { Settings, Target } from '../../../shared/types';
 import { api } from '../api/client';
+import { LinkAdvisory } from '../components/LinkAdvisory';
 import { Tooltip } from '../components/Tooltip';
 import { useStatus } from '../hooks/useLive';
 import { useTheme } from '../hooks/useTheme';
@@ -39,6 +40,8 @@ export function SettingsPage() {
         Tell Trapline about your plan so reports can compare measured speed against what you pay
         for.
       </p>
+
+      {status && <LinkAdvisory status={status} planDownMbps={settings.plan.downMbps} />}
 
       {status && !status.mtrAvailable && (
         <div className="banner">
@@ -213,7 +216,7 @@ export function SettingsPage() {
           </button>
           <button type="button" className="btn" onClick={() => void api.rediscover().then(setTargets)}>
             Re-discover router & ISP hop
-            <Tooltip text="Re-detects your router address and the ISP's first hop. Run this after changing routers or if the ISP re-routed your connection." />
+            <Tooltip text="Re-detects your router address, the ISP's first hop, and whether this computer is wired or on WiFi. Run this after changing routers, plugging in an Ethernet cable, or if the ISP re-routed your connection." />
           </button>
         </div>
       </div>

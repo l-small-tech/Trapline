@@ -21,6 +21,24 @@ file), `server/src/util/stats.ts`, `server/src/util/mos.ts`.
 - **Route evidence**: an `mtr` trace captured automatically when an event opens
   (rate-limited per mode).
 
+## Measurement vantage
+
+Every number is measured from the machine Trapline runs on, so it includes that
+machine's own link to the router. **For evidence attributable to the ISP, the monitoring
+machine must be wired (Ethernet) to the router.** WiFi adds loss, jitter, and throughput
+ceilings of its own that are indistinguishable, from this vantage point, from line
+problems; a report gathered over WiFi is fairly disputable.
+
+Trapline verifies the vantage point itself (`server/src/probes/netinfo.ts`): at startup,
+on every target re-discovery, and every 15 minutes it resolves the default-route
+interface (`ip -j route show default`), checks whether it is wireless
+(`/sys/class/net/<iface>/wireless`), and reads the negotiated rate of wired NICs
+(`/sys/class/net/<iface>/speed`). The result is exposed as `link` in `GET /status`, and
+the UI shows a warning banner when it detects WiFi, or a wired port negotiated below the
+plan's download speed (which caps speed tests below the plan regardless of the ISP).
+Detection is best-effort — in VMs and unusual containers the fields are `null` and no
+warning is shown — so the operator remains responsible for the vantage point.
+
 ## Event detection rules
 
 **Outage.** Opens when ≥ 3 *consecutive* probes are lost on **every** enabled

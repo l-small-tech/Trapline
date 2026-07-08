@@ -7,6 +7,7 @@
 import type {
   DnsPoint,
   HttpPoint,
+  LinkInfo,
   Mode,
   MonitorEvent,
   PingPoint,
@@ -26,6 +27,7 @@ import {
 import type { Repo } from '../db/repo.js';
 import { discoverTargets } from '../probes/discovery.js';
 import { timedResolve } from '../probes/dns.js';
+import { detectLinkInfo } from '../probes/netinfo.js';
 import { httpCheck } from '../probes/http.js';
 import { PingProbe } from '../probes/ping.js';
 import type { SpeedTestEngine } from '../speedtest/engine.js';
@@ -60,6 +62,7 @@ export class Scheduler {
     dns: [],
     http: [],
   };
+  private linkInfo: LinkInfo = { iface: null, wireless: null, linkSpeedMbps: null };
   readonly startedAt = Date.now();
 
   constructor(
@@ -94,6 +97,8 @@ export class Scheduler {
     this.timers.push(setInterval(() => this.gapTick(), GAP_TICK_MS));
     this.timers.push(setInterval(() => this.flushSamples(), 2000));
     this.timers.push(setInterval(() => this.broadcastStatus(), 30_000));
+    // Catch a laptop wandering onto WiFi mid-run.
+    this.timers.push(setInterval(() => void this.refreshLinkInfo(), 15 * MINUTE));
     for (const t of this.timers) t.unref();
     this.broadcastStatus();
   }
@@ -214,6 +219,7 @@ export class Scheduler {
   // --------------------------------------------------------------- targets
 
   async refreshTargets(): Promise<void> {
+    await this.refreshLinkInfo();
     try {
       const { gateway, ispHop } = await discoverTargets();
       if (gateway) this.repo.upsertTarget('gateway', gateway, 'Your router (gateway)', true);
@@ -222,6 +228,17 @@ export class Scheduler {
       this.log(`targets: gateway=${gateway ?? 'none'} ispHop=${ispHop ?? 'none'}`);
     } catch (err) {
       this.log(`target discovery failed: ${String(err)}`);
+    }
+  }
+
+  private async refreshLinkInfo(): Promise<void> {
+    const prev = this.linkInfo;
+    this.linkInfo = await detectLinkInfo();
+    if (this.linkInfo.wireless !== prev.wireless || this.linkInfo.iface !== prev.iface) {
+      const kind =
+        this.linkInfo.wireless === null ? 'unknown' : this.linkInfo.wireless ? 'WiFi' : 'wired';
+      this.log(`link: ${this.linkInfo.iface ?? 'unknown iface'} (${kind})`);
+      this.broadcastStatus();
     }
   }
 
@@ -428,6 +445,7 @@ export class Scheduler {
       }),
       openEvents: this.repo.getOpenEvents(),
       mtrAvailable: this.evidence.mtrAvailable,
+      link: this.linkInfo,
       serverStartedAt: this.startedAt,
       version: VERSION,
     };

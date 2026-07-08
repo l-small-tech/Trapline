@@ -2,18 +2,26 @@
 
 ## What you need
 
-- **A computer that stays on**, connected to your router with a cable if possible. A small
-  mini-PC or a Raspberry-Pi-class board is ideal; an old laptop works fine. Trapline is
-  very light — it needs almost no processing power and well under 500 MB of disk.
+- **A computer that stays on**, connected to your router **with an Ethernet cable** (this
+  matters — see below). A small mini-PC or a Raspberry-Pi-class board is ideal; an old
+  laptop works fine. Trapline is very light — it needs almost no processing power and
+  well under 500 MB of disk.
 - **Linux** on that computer, with **Node.js 22 or newer** (24 recommended) installed.
 - The standard `ping` command (already present on virtually every Linux system) and,
   ideally, `mtr` (`sudo apt install mtr-tiny`), which lets Trapline record *where* on the
   route your traffic is being lost.
 
-Why a cable? Trapline measures your internet line. If the monitoring computer is on WiFi,
-some hiccups it records will really be WiFi hiccups. Trapline can still tell "my home
-network" apart from "the ISP" either way, but a wired connection gives the cleanest
-evidence.
+**Why the cable is important:** Trapline measures your internet line, and it can only see
+that line *through* the computer's own connection to the router. WiFi has hiccups of its
+own — interference from walls, microwaves, neighbours' networks — and from Trapline's
+side of the wall those look identical to internet problems. A report gathered over WiFi
+will overstate your problems, and your ISP would be right to question it. On a cable,
+every recorded problem really happened on the line.
+
+Trapline checks this for you: if it detects it's running over WiFi, or that the
+computer's network port is slower than the internet plan you pay for (an old 100 Mbps
+port can't measure a 250 Mbps plan), a warning banner appears on the Dashboard and
+Settings pages explaining what to do. No banner means you're good.
 
 ## Install and start
 

@@ -17,6 +17,11 @@ wrong — a plain-language hint about *where* the problem is, such as "your rout
 the problem is on the ISP side" or "your own router is not responding; check your home
 equipment first."
 
+Above the status banner you may also see a **setup warning**: if Trapline detects that
+this computer is on WiFi (which mixes WiFi interference into the evidence — use an
+Ethernet cable), or that its network port is slower than the plan you pay for (so speed
+tests are capped by the port, not the ISP). Fix the cause and the warning disappears.
+
 ## The six tiles
 
 Hover over any tile for an explanation. In short:

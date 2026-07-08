@@ -16,6 +16,16 @@ four daily speed tests take about 20 seconds each at random times. If you notice
 test while gaming, that's the worst of it. Homes with data caps can use Eco mode
 (see [Data usage](data-usage.md)).
 
+## Can I run Trapline over WiFi?
+
+It will run, but you shouldn't — connect the monitoring computer to your router with an
+Ethernet cable. WiFi has interruptions of its own (interference, distance, busy
+neighbours' networks), and Trapline can't tell those apart from real internet problems:
+a report gathered over WiFi overstates your problems and gives the ISP a fair reason to
+dismiss it. Trapline detects when it's running on WiFi and shows a warning banner on the
+Dashboard until you plug in. After connecting the cable, click **Re-discover router &
+ISP hop** on the Settings page (or just restart Trapline).
+
 ## Can I trust the numbers? Can my ISP?
 
 That's the design goal. Trapline follows strict honesty rules: time when the monitor
