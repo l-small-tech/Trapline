@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import type { SummaryStats } from '../../../shared/types';
 import { API, api, fmtDuration, fmtMbps } from '../api/client';
 import { EventsTimeline } from '../components/EventsTimeline';
+import { Icon } from '../components/Icon';
 import { RangePicker, presetRange, type Range } from '../components/RangePicker';
 import { StatTile } from '../components/StatTile';
 import { Tooltip } from '../components/Tooltip';
@@ -36,13 +37,13 @@ export function Reports() {
 
       <div className="btn-row section">
         <a className="btn primary" href={exportUrl('html')} target="_blank" rel="noreferrer">
-          📄 Evidence report (HTML)
+          <Icon name="file" /> Evidence report (HTML)
         </a>
         <a className="btn" href={exportUrl('csv')}>
-          ⬇︎ Raw data (CSV)
+          <Icon name="download" /> Raw data (CSV)
         </a>
         <a className="btn" href={exportUrl('json')}>
-          ⬇︎ Raw data (JSON)
+          <Icon name="download" /> Raw data (JSON)
         </a>
         <Tooltip text="The HTML report includes charts, the outage table with exact timestamps, and a methodology appendix explaining how everything was measured — designed to be credible when shown to the ISP. CSV/JSON contain the same numbers for spreadsheets or scripts." />
         {loading && <span className="spin" />}

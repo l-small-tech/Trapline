@@ -1,33 +1,34 @@
 import { useState } from 'react';
 import type { Mode, StatusSnapshot } from '../../../shared/types';
 import { api, fmtBytes, fmtDuration } from '../api/client';
+import { Icon } from './Icon';
 import { Tooltip } from './Tooltip';
 
 const MODES: {
   mode: Mode;
   name: string;
-  icon: string;
+  icon: 'leaf' | 'radio' | 'search';
   desc: string;
   dataNote: string;
 }[] = [
   {
     mode: 'eco',
     name: 'Eco',
-    icon: '🌱',
+    icon: 'leaf',
     desc: 'Bare-minimum checks: one probe every 30 seconds and one speed test per night. For homes with small data caps.',
     dataNote: 'uses the least data',
   },
   {
     mode: 'normal',
     name: 'Normal',
-    icon: '📡',
+    icon: 'radio',
     desc: 'Recommended. Continuous probing of your router, the ISP network, and the wider internet, plus a few speed tests a day. You will not notice it.',
     dataNote: 'balanced',
   },
   {
     mode: 'full',
     name: 'Full Capture',
-    icon: '🔍',
+    icon: 'search',
     desc: 'Turn this on while the internet feels broken. Probes every second and tests speed every 2 hours to capture maximum evidence. Automatically switches back.',
     dataNote: 'heaviest — auto-reverts',
   },
@@ -62,7 +63,7 @@ export function ModeSwitcher({
 
   return (
     <div>
-      <h3 style={{ fontSize: 14, fontWeight: 600, marginBottom: 10, display: 'flex', gap: 6 }}>
+      <h3 className="section-title">
         Monitoring mode
         <Tooltip text="How aggressively Trapline probes your connection. More probing = better evidence but more data used. The projected monthly data use for each mode is shown on its card." />
       </h3>
@@ -76,7 +77,7 @@ export function ModeSwitcher({
             onClick={() => void switchMode(m.mode)}
           >
             <div className="mode-name">
-              <span aria-hidden="true">{m.icon}</span> {m.name}
+              <Icon name={m.icon} /> {m.name}
               {status.mode === m.mode && <span className="chip">current</span>}
             </div>
             <div className="mode-desc">{m.desc}</div>

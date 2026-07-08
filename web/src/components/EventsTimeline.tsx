@@ -124,7 +124,7 @@ function FragmentRow({
           </span>
         </td>
         <td>
-          <button type="button" className="btn" style={{ padding: '3px 10px', fontSize: 12 }} onClick={onToggle}>
+          <button type="button" className="btn sm" onClick={onToggle}>
             {open ? 'Hide' : 'Details'}
           </button>
         </td>

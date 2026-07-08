@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { NavLink, Route, Routes } from 'react-router-dom';
 import { api } from './api/client';
+import { Icon } from './components/Icon';
 import { useLiveMessage, useStatus } from './hooks/useLive';
 import { Dashboard } from './pages/Dashboard';
 import { Reports } from './pages/Reports';
@@ -9,11 +10,11 @@ import { Tools } from './pages/Tools';
 import { UsagePage } from './pages/Usage';
 
 const NAV = [
-  { to: '/', label: 'Dashboard', icon: '📊' },
-  { to: '/reports', label: 'Reports', icon: '📄' },
-  { to: '/tools', label: 'Tools', icon: '🧰' },
-  { to: '/usage', label: 'Data usage', icon: '💾' },
-  { to: '/settings', label: 'Settings', icon: '⚙️' },
+  { to: '/', label: 'Dashboard' },
+  { to: '/reports', label: 'Reports' },
+  { to: '/tools', label: 'Tools' },
+  { to: '/usage', label: 'Data usage' },
+  { to: '/settings', label: 'Settings' },
 ];
 
 function Logo() {
@@ -56,16 +57,18 @@ export function App() {
     <div className="app">
       <nav className="sidebar">
         <Logo />
-        {NAV.map((n) => (
-          <NavLink
-            key={n.to}
-            to={n.to}
-            end={n.to === '/'}
-            className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}
-          >
-            <span aria-hidden="true">{n.icon}</span> {n.label}
-          </NavLink>
-        ))}
+        <div className="nav-route">
+          {NAV.map((n) => (
+            <NavLink
+              key={n.to}
+              to={n.to}
+              end={n.to === '/'}
+              className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}
+            >
+              <span className="station" aria-hidden="true" /> {n.label}
+            </NavLink>
+          ))}
+        </div>
         <div className="nav-state">
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <span
@@ -90,7 +93,7 @@ export function App() {
       <main className="content">
         {suggestion && status?.mode !== 'full' && (
           <div className="banner" role="status">
-            <span aria-hidden="true">🔍</span>
+            <Icon name="search" size={18} />
             <div style={{ flex: 1 }}>
               <strong>Trouble detected — switch to Full Capture?</strong>
               <div className="dim">

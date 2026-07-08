@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { Settings, Target } from '../../../shared/types';
 import { api } from '../api/client';
+import { Icon } from '../components/Icon';
 import { LinkAdvisory } from '../components/LinkAdvisory';
 import { Tooltip } from '../components/Tooltip';
 import { useStatus } from '../hooks/useLive';
@@ -45,7 +46,7 @@ export function SettingsPage() {
 
       {status && !status.mtrAvailable && (
         <div className="banner">
-          <span aria-hidden="true">⚠️</span>
+          <Icon name="alert" size={18} />
           <div>
             <strong>Route tracing (mtr) is unavailable</strong>
             <div className="dim">
@@ -56,7 +57,7 @@ export function SettingsPage() {
         </div>
       )}
 
-      <div className="section card" style={{ maxWidth: 560 }}>
+      <div className="section card narrow">
         <h3>
           Your internet plan
           <Tooltip text="Copied straight from your bill. Trapline uses this to flag speed tests that come in far below what's advertised, and to show plan reference lines on charts." />
@@ -68,8 +69,8 @@ export function SettingsPage() {
             onChange={(e) => setSettings({ ...settings, plan: { ...settings.plan, ispName: e.target.value } })}
           />
         </div>
-        <div style={{ display: 'flex', gap: 12 }}>
-          <div className="form-row" style={{ flex: 1 }}>
+        <div className="form-grid">
+          <div className="form-row">
             <label>Download (Mbps)</label>
             <input
               type="number"
@@ -78,7 +79,7 @@ export function SettingsPage() {
               onChange={(e) => setSettings({ ...settings, plan: { ...settings.plan, downMbps: num(e.target.value) } })}
             />
           </div>
-          <div className="form-row" style={{ flex: 1 }}>
+          <div className="form-row">
             <label>Upload (Mbps)</label>
             <input
               type="number"
@@ -87,7 +88,7 @@ export function SettingsPage() {
               onChange={(e) => setSettings({ ...settings, plan: { ...settings.plan, upMbps: num(e.target.value) } })}
             />
           </div>
-          <div className="form-row" style={{ flex: 1 }}>
+          <div className="form-row">
             <label>Price / month</label>
             <input
               type="number"
@@ -134,11 +135,12 @@ export function SettingsPage() {
         </div>
       </div>
 
-      <div className="section card" style={{ maxWidth: 720 }}>
+      <div className="section card wide">
         <h3>
           Probe targets
           <Tooltip text="The addresses Trapline pings continuously. The router and ISP hop are discovered automatically — the comparison between them is what proves whose fault an outage is. You can add your own targets (e.g. a work VPN or game server) to watch too." />
         </h3>
+        <div className="table-scroll">
         <table className="data">
           <thead>
             <tr>
@@ -173,8 +175,7 @@ export function SettingsPage() {
                   {t.kind === 'custom' && (
                     <button
                       type="button"
-                      className="btn"
-                      style={{ padding: '2px 10px', fontSize: 12 }}
+                      className="btn sm"
                       onClick={() => void api.deleteTarget(t.id).then(refreshTargets)}
                     >
                       Remove
@@ -185,6 +186,7 @@ export function SettingsPage() {
             ))}
           </tbody>
         </table>
+        </div>
         <div className="btn-row" style={{ marginTop: 12 }}>
           <input
             placeholder="host or IP"
@@ -214,14 +216,16 @@ export function SettingsPage() {
           >
             Add target
           </button>
-          <button type="button" className="btn" onClick={() => void api.rediscover().then(setTargets)}>
-            Re-discover router & ISP hop
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+            <button type="button" className="btn" onClick={() => void api.rediscover().then(setTargets)}>
+              Re-discover router & ISP hop
+            </button>
             <Tooltip text="Re-detects your router address, the ISP's first hop, and whether this computer is wired or on WiFi. Run this after changing routers, plugging in an Ethernet cable, or if the ISP re-routed your connection." />
-          </button>
+          </span>
         </div>
       </div>
 
-      <div className="section card" style={{ maxWidth: 560 }}>
+      <div className="section card narrow">
         <h3>
           Appearance & data retention
         </h3>
@@ -229,10 +233,10 @@ export function SettingsPage() {
           <label>Theme</label>
           <div className="seg">
             <button type="button" className={theme === 'dark' ? 'active' : ''} onClick={() => setTheme('dark')}>
-              🌙 Dark
+              Dark
             </button>
             <button type="button" className={theme === 'light' ? 'active' : ''} onClick={() => setTheme('light')}>
-              ☀️ Light
+              Light
             </button>
           </div>
         </div>

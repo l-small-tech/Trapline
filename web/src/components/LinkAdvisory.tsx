@@ -1,4 +1,5 @@
 import type { StatusSnapshot } from '../../../shared/types';
+import { Icon } from './Icon';
 
 /**
  * Warns when the monitoring machine's own connection undermines the
@@ -19,7 +20,7 @@ export function LinkAdvisory({
   if (wireless === true) {
     return (
       <div className="banner">
-        <span aria-hidden="true">📶</span>
+        <Icon name="wifi" size={18} />
         <div>
           <strong>Trapline is monitoring over WiFi{iface ? ` (${iface})` : ''}</strong>
           <div className="dim">
@@ -41,7 +42,7 @@ export function LinkAdvisory({
   ) {
     return (
       <div className="banner">
-        <span aria-hidden="true">🔌</span>
+        <Icon name="plug" size={18} />
         <div>
           <strong>
             Network port is limited to {linkSpeedMbps} Mbps{iface ? ` (${iface})` : ''}
