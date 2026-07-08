@@ -1,3 +1,4 @@
+import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { Mode } from '../../shared/types.js';
@@ -13,7 +14,15 @@ export const WEB_DIST = path.join(ROOT_DIR, 'web', 'dist');
 export const HOST = process.env.TRAPLINE_HOST ?? '127.0.0.1';
 export const PORT = Number(process.env.TRAPLINE_PORT ?? 8731);
 export const BASE_PATH = '/trapline';
-export const VERSION = '0.1.0';
+
+/** Injected by esbuild --define in release builds; see scripts/build-sea.mjs. */
+declare const __APP_VERSION__: string | undefined;
+/** Single source of truth is the root package.json "version". */
+export const VERSION: string =
+  typeof __APP_VERSION__ === 'string'
+    ? __APP_VERSION__
+    : (JSON.parse(fs.readFileSync(path.join(ROOT_DIR, 'package.json'), 'utf8')) as { version: string })
+        .version;
 
 /** Public anchor hosts probed in addition to the gateway and the ISP's first hop. */
 export const ANCHORS = [
