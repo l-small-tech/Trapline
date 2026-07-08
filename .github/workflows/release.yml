@@ -1,0 +1,110 @@
+# Builds the release binaries on GitHub-hosted runners from the tagged
+# source, checksums them, attests build provenance, and publishes a GitHub
+# Release. Only official GitHub actions are used; the release itself is
+# created with the preinstalled gh CLI.
+#
+# Trigger: push a tag like v0.2.0 (or v0.2.0-rc.1 for a prerelease).
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: ubuntu-latest,     target: linux-x64,   smoke: true }
+          - { os: ubuntu-24.04-arm,  target: linux-arm64, smoke: true }
+          - { os: macos-latest,      target: macos-arm64, smoke: true }
+          # cross-build: downloads the official darwin-x64 node binary;
+          # the smoke test still runs, via Rosetta.
+          - { os: macos-latest,      target: macos-x64,   smoke: true }
+          - { os: windows-latest,    target: windows-x64, smoke: true }
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - name: Verify tag matches package.json version
+        shell: bash
+        run: |
+          V=$(node -p "require('./package.json').version")
+          TAG_BASE=${GITHUB_REF_NAME%%-*}   # v0.2.0-rc.1 → v0.2.0
+          if [ "v$V" != "$TAG_BASE" ]; then
+            echo "tag $GITHUB_REF_NAME does not match package.json version $V"
+            exit 1
+          fi
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      - run: node scripts/build-sea.mjs --target ${{ matrix.target }}
+        env:
+          TRAPLINE_RELEASE: '1'
+      - name: Smoke test the binary
+        if: ${{ matrix.smoke }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          BIN=$(ls dist/trapline-v*)
+          "$BIN" --version
+          "$BIN" --no-browser --port 8765 --data-dir "$RUNNER_TEMP/tl-smoke" &
+          PID=$!
+          ok=''
+          for _ in $(seq 30); do
+            if curl -fsS http://127.0.0.1:8765/trapline/api/health >/dev/null 2>&1; then ok=1; break; fi
+            sleep 1
+          done
+          [ -n "$ok" ] || { echo "server never became healthy"; exit 1; }
+          curl -fsS http://127.0.0.1:8765/trapline/ | grep -qi '<!doctype html'
+          kill $PID || true
+      - uses: actions/upload-artifact@v4
+        with:
+          name: trapline-${{ matrix.target }}
+          path: dist/trapline-v*
+          if-no-files-found: error
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+      - name: Generate checksums
+        run: |
+          cd dist
+          sha256sum trapline-v* > SHA256SUMS.txt
+          cat SHA256SUMS.txt
+      # Provenance attestations require a public repository (or GHEC);
+      # the gate keeps prerelease testing working while the repo is private.
+      - uses: actions/attest-build-provenance@v2
+        if: ${{ !github.event.repository.private }}
+        with:
+          subject-path: dist/trapline-v*
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          sed "s/__VERSION__/${GITHUB_REF_NAME}/g" .github/release-notes-template.md > /tmp/notes.md
+          PRERELEASE=''
+          case "$GITHUB_REF_NAME" in *-*) PRERELEASE='--prerelease' ;; esac
+          gh release create "$GITHUB_REF_NAME" dist/* \
+            --verify-tag \
+            --title "Trapline $GITHUB_REF_NAME" \
+            --notes-file /tmp/notes.md \
+            $PRERELEASE
