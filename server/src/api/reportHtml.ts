@@ -373,7 +373,7 @@ function methodology(payload: ReportPayload): string {
       aggregated hourly, weighted by sample count.</li>
   </ul>
 
-  <p class="dim">Trapline is open source (MIT license); the exact detection thresholds and
+  <p class="dim">Trapline is open source (GPL-3.0-or-later); the exact detection thresholds and
   measurement code in effect for this report can be audited in the source repository.</p>`;
 }
 
