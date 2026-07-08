@@ -257,7 +257,7 @@ export function SettingsPage() {
       <p className="dim">
         Trapline v{status?.version ?? '…'} · monitoring since{' '}
         {status ? new Date(status.serverStartedAt).toLocaleString() : '…'} (this run) · open source,
-        MIT licensed
+        GPLv3 licensed
       </p>
     </div>
   );

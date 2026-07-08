@@ -97,7 +97,7 @@ Honesty rules that keep the reports credible:
 - Every event stores its raw evidence: the surrounding ping samples and an `mtr` route trace
   showing exactly where packets died.
 - The methodology (thresholds, formulas, endpoints) is printed inside every report, and this
-  codebase is small and MIT-licensed — anyone, including the ISP, can audit it.
+  codebase is small and GPL-licensed — anyone, including the ISP, can audit it.
 
 ## Reports
 
@@ -161,4 +161,5 @@ tool.
 
 ## License
 
-MIT — see [LICENSE](LICENSE). Contributions welcome, especially from fellow northerners.
+GPL-3.0-or-later — see [LICENSE](LICENSE). Copyright (C) 2026 l-small-tech.
+Contributions welcome, especially from fellow northerners.

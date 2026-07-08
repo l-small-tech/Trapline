@@ -2,6 +2,10 @@
  * Trapline server bootstrap: open DB → migrate → wire monitor components →
  * start Fastify on 127.0.0.1:8731. The server also serves the built web UI
  * from web/dist so the app works standalone without nginx.
+ *
+ * Trapline — community ISP service-quality monitor.
+ * Copyright (C) 2026 l-small-tech
+ * Licensed under the GNU General Public License v3.0 or later; see LICENSE.
  */
 import fastifyStatic from '@fastify/static';
 import Fastify from 'fastify';
