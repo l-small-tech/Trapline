@@ -1,113 +1,133 @@
 /**
- * Trapline server bootstrap: open DB → migrate → wire monitor components →
- * start Fastify on 127.0.0.1:8731. The server also serves the built web UI
- * from web/dist so the app works standalone without nginx.
+ * CLI entry point. Parses flags, maps them onto TRAPLINE_* env vars, then
+ * imports the server (config reads env at import time, so the import must
+ * happen after the flags are applied).
  *
  * Trapline — community ISP service-quality monitor.
  * Copyright (C) 2026 l-small-tech
  * Licensed under the GNU General Public License v3.0 or later; see LICENSE.
  */
-import fastifyStatic from '@fastify/static';
-import Fastify from 'fastify';
-import fs from 'node:fs';
-import { registerRoutes } from './api/routes.js';
-import { SseHub } from './api/sse.js';
-import { BASE_PATH, HOST, PORT, VERSION, WEB_DIST } from './config.js';
-import { closeDb, openDb } from './db/db.js';
-import { migrate } from './db/migrations.js';
-import { Repo } from './db/repo.js';
-import { EvidenceCollector } from './monitor/evidence.js';
-import { RollupJob } from './monitor/rollup.js';
-import { Scheduler } from './monitor/scheduler.js';
-import { UsageLedger } from './monitor/usage.js';
-import { mtrSelfTest } from './probes/mtr.js';
-import { SpeedTestEngine } from './speedtest/engine.js';
+import { spawn } from 'node:child_process';
+import { isSea } from './sea.js';
+
+const HELP = `Trapline — community ISP service-quality monitor
+
+Usage: trapline [options]
+
+Options:
+  --port <n>        Port to listen on (default 8731; env TRAPLINE_PORT)
+  --host <addr>     Address to bind (default 127.0.0.1; env TRAPLINE_HOST)
+  --data-dir <dir>  Where measurements are stored (env TRAPLINE_DATA_DIR)
+  --no-browser      Don't open the dashboard in a browser on start
+                    (env TRAPLINE_NO_BROWSER=1)
+  --version         Print version and exit
+  --help            Show this help
+
+Once running, the dashboard is at http://127.0.0.1:<port>/trapline/
+`;
+
+function fail(msg: string): never {
+  console.error(`trapline: ${msg}\n`);
+  console.error(HELP);
+  process.exit(1);
+}
+
+interface CliFlags {
+  noBrowser: boolean;
+  wantVersion: boolean;
+  wantHelp: boolean;
+}
+
+/** Applies value flags to process.env; returns the boolean flags. */
+function parseArgs(argv: string[]): CliFlags {
+  const flags: CliFlags = { noBrowser: false, wantVersion: false, wantHelp: false };
+  for (let i = 0; i < argv.length; i++) {
+    const arg = argv[i]!;
+    const next = (): string => {
+      const v = argv[++i];
+      if (v === undefined || v.startsWith('--')) fail(`${arg} requires a value`);
+      return v;
+    };
+    switch (arg) {
+      case '--port': {
+        const port = Number(next());
+        if (!Number.isInteger(port) || port < 1 || port > 65535) fail('--port must be 1-65535');
+        process.env.TRAPLINE_PORT = String(port);
+        break;
+      }
+      case '--host':
+        process.env.TRAPLINE_HOST = next();
+        break;
+      case '--data-dir':
+        process.env.TRAPLINE_DATA_DIR = next();
+        break;
+      case '--no-browser':
+        flags.noBrowser = true;
+        break;
+      case '--version':
+      case '-v':
+        flags.wantVersion = true;
+        break;
+      case '--help':
+      case '-h':
+        flags.wantHelp = true;
+        break;
+      default:
+        fail(`unknown option: ${arg}`);
+    }
+  }
+  return flags;
+}
+
+function openBrowser(url: string): void {
+  try {
+    const [cmd, args] =
+      process.platform === 'win32'
+        ? ['cmd', ['/c', 'start', '', url]]
+        : process.platform === 'darwin'
+          ? ['open', [url]]
+          : ['xdg-open', [url]];
+    spawn(cmd, args as string[], { detached: true, stdio: 'ignore' }).on('error', () => {}).unref();
+  } catch {
+    // best effort — the URL is printed either way
+  }
+}
 
 async function main(): Promise<void> {
-  const app = Fastify({
-    logger: {
-      level: process.env.LOG_LEVEL ?? 'info',
-      transport: process.stdout.isTTY
-        ? { target: 'pino-pretty', options: { translateTime: 'SYS:HH:MM:ss' } }
-        : undefined,
-    },
-  });
-  const log = (msg: string): void => app.log.info(msg);
-
-  const db = openDb();
-  migrate(db);
-  const repo = new Repo(db);
-
-  const hub = new SseHub();
-  const usage = new UsageLedger(repo);
-  const evidence = new EvidenceCollector(
-    repo,
-    usage,
-    () => repo.getSettings().mode,
-    () => repo.listTargets().filter((t) => t.enabled),
-    log,
-  );
-  const speedEngine = new SpeedTestEngine(repo, usage, hub, log);
-  const scheduler = new Scheduler(repo, usage, evidence, speedEngine, hub, log);
-  const rollup = new RollupJob(repo, log);
-
-  // mtr capability self-test (raw sockets); degrade gracefully if missing.
-  const mtrTest = await mtrSelfTest();
-  evidence.mtrAvailable = mtrTest.available;
-  if (!mtrTest.available) {
-    app.log.warn(
-      `mtr is unavailable (${mtrTest.error ?? 'unknown'}); route evidence disabled. ` +
-        'Fix: sudo apt install mtr-tiny (and ensure mtr-packet has cap_net_raw).',
-    );
+  const flags = parseArgs(process.argv.slice(2));
+  if (flags.wantHelp) {
+    console.log(HELP);
+    return;
+  }
+  const { VERSION } = await import('./config.js');
+  if (flags.wantVersion) {
+    console.log(`trapline v${VERSION} (node ${process.versions.node}, ${process.platform}-${process.arch})`);
+    return;
   }
 
-  // API under /trapline/api.
-  await app.register(async (api) => registerRoutes(api, { repo, scheduler, speedEngine, usage, hub }), {
-    prefix: `${BASE_PATH}/api`,
-  });
-
-  // Static web UI (if built) under /trapline/, with SPA fallback.
-  if (fs.existsSync(WEB_DIST)) {
-    await app.register(fastifyStatic, {
-      root: WEB_DIST,
-      prefix: `${BASE_PATH}/`,
-      index: ['index.html'],
-    });
-    app.setNotFoundHandler((req, reply) => {
-      if (req.method === 'GET' && req.url.startsWith(`${BASE_PATH}/`) && !req.url.startsWith(`${BASE_PATH}/api/`)) {
-        return reply.sendFile('index.html');
-      }
-      return reply.code(404).send({ error: 'not found' });
-    });
-  } else {
-    app.log.warn(`web UI not built (${WEB_DIST} missing) — API only. Run: npm run build:web`);
+  const { startServer } = await import('./app.js');
+  try {
+    const { url } = await startServer();
+    if (isSea()) {
+      const { DATA_DIR } = await import('./config.js');
+      console.log('');
+      console.log(`  Trapline v${VERSION} is running: ${url}`);
+      console.log(`  Measurements are stored in: ${DATA_DIR}`);
+      console.log('  Keep this window open to keep monitoring. Press Ctrl+C to stop.');
+      console.log('');
+      if (!flags.noBrowser && process.env.TRAPLINE_NO_BROWSER !== '1') openBrowser(url);
+    }
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === 'EADDRINUSE') {
+      const { PORT } = await import('./config.js');
+      console.error(
+        `trapline: port ${PORT} is already in use — is Trapline already running?\n` +
+          `Open http://127.0.0.1:${PORT}/trapline/ to check, or start with --port ${PORT + 1}.`,
+      );
+      process.exit(1);
+    }
+    throw err;
   }
-
-  app.get('/', async (_req, reply) => reply.redirect(`${BASE_PATH}/`));
-  app.get(BASE_PATH, async (_req, reply) => reply.redirect(`${BASE_PATH}/`));
-
-  usage.start();
-  rollup.start();
-  await scheduler.start();
-
-  const shutdown = (signal: string): void => {
-    app.log.info(`${signal} received — shutting down`);
-    scheduler.stop();
-    rollup.stop();
-    usage.stop();
-    hub.close();
-    void app.close().then(() => {
-      closeDb();
-      process.exit(0);
-    });
-    // Belt and braces: never hang shutdown.
-    setTimeout(() => process.exit(0), 5000).unref();
-  };
-  process.on('SIGTERM', () => shutdown('SIGTERM'));
-  process.on('SIGINT', () => shutdown('SIGINT'));
-
-  await app.listen({ host: HOST, port: PORT });
-  app.log.info(`Trapline v${VERSION} listening on http://${HOST}:${PORT}${BASE_PATH}/`);
 }
 
 main().catch((err) => {

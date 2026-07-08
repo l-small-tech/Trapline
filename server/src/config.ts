@@ -2,12 +2,15 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { Mode } from '../../shared/types.js';
+import { isSea } from './sea.js';
+import { platformDataDir } from './util/dataDir.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-/** Repo root (trapline/). */
+/** Repo root (trapline/). Meaningless inside the standalone executable. */
 export const ROOT_DIR = path.resolve(__dirname, '..', '..');
-export const DATA_DIR = process.env.TRAPLINE_DATA_DIR ?? path.join(ROOT_DIR, 'data');
+export const DATA_DIR =
+  process.env.TRAPLINE_DATA_DIR ?? (isSea() ? platformDataDir() : path.join(ROOT_DIR, 'data'));
 export const DB_PATH = path.join(DATA_DIR, 'trapline.db');
 export const WEB_DIST = path.join(ROOT_DIR, 'web', 'dist');
 
