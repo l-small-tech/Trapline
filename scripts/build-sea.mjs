@@ -134,8 +134,11 @@ async function main() {
   // 1. web UI
   if (!opts.skipWeb) {
     console.log('▸ building web UI');
+    // npm is npm.cmd on Windows, and Node refuses to spawn .cmd files
+    // without a shell (CVE-2024-27980). Args are fixed strings — safe.
     run(process.platform === 'win32' ? 'npm.cmd' : 'npm', ['run', 'build', '-w', 'web'], {
       env: { ...process.env, TRAPLINE_RELEASE: '1' },
+      shell: process.platform === 'win32',
     });
   }
   const webDist = path.join(ROOT, 'web', 'dist');
