@@ -41,15 +41,6 @@ export async function timedResolve(
   }
 }
 
-/**
- * The system resolver as node:dns sees it. Note: on systemd-resolved hosts
- * this is usually 127.0.0.53 — that's still "what the machine uses", which
- * is what we want to measure.
- */
-export function systemResolverAddress(): string {
-  return dns.getServers()[0] ?? 'unknown';
-}
-
 export const BENCH_RESOLVERS: { ip: string | null; label: string }[] = [
   { ip: null, label: 'System resolver' },
   { ip: '1.1.1.1', label: 'Cloudflare (1.1.1.1)' },

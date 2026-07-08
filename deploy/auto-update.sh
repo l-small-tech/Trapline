@@ -1,16 +1,20 @@
 #!/usr/bin/env bash
-# Nightly auto-update for the Trapline deployment on beast.
+# Nightly auto-update for a Docker-based Trapline deployment.
 #
-# Runs ON beast (via cron) inside the git clone at ~/docker-compose/trapline.
+# Run on the Docker host (via cron) inside a git clone of this repo.
 # Fetches origin/main; if the clone is already at that commit, exits quietly.
 # Otherwise hard-resets to origin/main, rebuilds, restarts the container, and
 # waits for health. Idempotent — safe to run by hand any time.
 #
-# Cron entry (crontab -e on beast):
-#   30 4 * * * ~/docker-compose/trapline/deploy/auto-update.sh >> ~/docker-compose/trapline-autoupdate.log 2>&1
+# WARNING: this hard-resets the clone and deploys whatever is on origin/main.
+# Only point it at a repository whose main branch you trust to be deployable.
+#
+# Cron entry (crontab -e on the Docker host; adjust the clone path):
+#   30 4 * * * /path/to/trapline/deploy/auto-update.sh >> "$HOME/trapline-autoupdate.log" 2>&1
 set -euo pipefail
 
-REPO_DIR="$HOME/docker-compose/trapline"
+# Defaults to the clone this script lives in; override with TRAPLINE_REPO_DIR.
+REPO_DIR="${TRAPLINE_REPO_DIR:-$(cd "$(dirname "$0")/.." && pwd)}"
 BRANCH="main"
 HEALTH_URL="http://127.0.0.1:8731/trapline/api/health"
 

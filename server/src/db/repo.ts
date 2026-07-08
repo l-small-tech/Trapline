@@ -150,13 +150,6 @@ export class Repo {
     return rows.map((r) => ({ ts: r.ts, targetId: r.target_id, rttMs: r.rtt_ms }));
   }
 
-  countPingsInRange(from: number, to: number): { sent: number; lost: number } {
-    const r = this.prep(
-      'SELECT COUNT(*) AS sent, SUM(CASE WHEN success = 0 THEN 1 ELSE 0 END) AS lost FROM ping_samples WHERE ts BETWEEN ? AND ?',
-    ).get(from, to) as { sent: number; lost: number | null };
-    return { sent: r.sent, lost: r.lost ?? 0 };
-  }
-
   // --------------------------------------------------------------------- dns
 
   insertDns(

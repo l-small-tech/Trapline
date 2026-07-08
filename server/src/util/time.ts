@@ -8,11 +8,6 @@ export function hourStart(ts: number): number {
   return Math.floor(ts / HOUR) * HOUR;
 }
 
-/** Start of the UTC day containing `ts`. */
-export function dayStartUtc(ts: number): number {
-  return Math.floor(ts / DAY) * DAY;
-}
-
 export function isoUtc(ts: number): string {
   return new Date(ts).toISOString();
 }
