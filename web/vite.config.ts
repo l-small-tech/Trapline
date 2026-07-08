@@ -18,6 +18,7 @@ export default defineConfig({
   },
   build: {
     outDir: 'dist',
-    sourcemap: true,
+    // Release binaries embed dist/ wholesale — don't ship the 1MB sourcemap.
+    sourcemap: !process.env.TRAPLINE_RELEASE,
   },
 });
