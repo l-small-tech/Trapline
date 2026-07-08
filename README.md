@@ -159,6 +159,14 @@ The detection thresholds live in `server/src/monitor/detector.ts`; probe cadence
 `server/src/config.ts`. Both are deliberately boring to read — that's the point of an evidence
 tool.
 
+## Documentation
+
+Full documentation lives in [docs/](docs/README.md): a plain-language
+[user guide](docs/user/getting-started.md) (no networking background needed), the
+[technical docs](docs/technical/architecture.md) for running, auditing, or hacking on
+Trapline, and the [purpose statement](docs/PURPOSE.md) — why a community-run monitor for
+the North's fiber network matters.
+
 ## License
 
 GPL-3.0-or-later — see [LICENSE](LICENSE). Copyright (C) 2026 l-small-tech.
