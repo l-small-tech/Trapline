@@ -28,12 +28,13 @@ const C = {
   critical: '#d03b3b',
 };
 
-function esc(s: unknown): string {
+export function esc(s: unknown): string {
   return String(s)
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 }
 
 // ------------------------------------------------------------ SVG helpers

@@ -33,6 +33,102 @@ function validHost(host: unknown): host is string {
   return typeof host === 'string' && host.length <= 254 && HOST_RE.test(host);
 }
 
+function isHttpUrl(v: unknown): v is string {
+  if (typeof v !== 'string' || v.length > 2000) return false;
+  try {
+    const u = new URL(v);
+    return u.protocol === 'http:' || u.protocol === 'https:';
+  } catch {
+    return false;
+  }
+}
+
+function numberIn(v: unknown, min: number, max: number): v is number {
+  return typeof v === 'number' && Number.isFinite(v) && v >= min && v <= max;
+}
+
+/**
+ * Validate a PUT /settings body against the known settings shape.
+ * Unknown keys are rejected so typos fail loudly instead of persisting
+ * silently; `mode` is accepted but ignored (changes go through POST /mode).
+ * Returns the merged settings or an error message.
+ */
+export function mergeSettings(
+  current: Settings,
+  body: Record<string, unknown>,
+): { next: Settings } | { error: string } {
+  const next: Settings = { ...current, plan: { ...current.plan } };
+  for (const [key, value] of Object.entries(body)) {
+    switch (key) {
+      case 'mode':
+        break; // scheduler-owned; see POST /mode
+      case 'theme':
+        if (value !== 'dark' && value !== 'light') return { error: 'theme must be dark or light' };
+        next.theme = value;
+        break;
+      case 'speedtestDownUrl':
+        if (!isHttpUrl(value)) return { error: 'speedtestDownUrl must be an http(s) URL' };
+        next.speedtestDownUrl = value;
+        break;
+      case 'speedtestUpUrl':
+        if (!isHttpUrl(value)) return { error: 'speedtestUpUrl must be an http(s) URL' };
+        next.speedtestUpUrl = value;
+        break;
+      case 'speedDegradationFraction':
+        if (!numberIn(value, 0.1, 1)) return { error: 'speedDegradationFraction must be 0.1–1' };
+        next.speedDegradationFraction = value;
+        break;
+      case 'latencyThresholdMs':
+        if (!numberIn(value, 0, 10_000)) return { error: 'latencyThresholdMs must be 0–10000' };
+        next.latencyThresholdMs = value;
+        break;
+      case 'retentionPingDays':
+        if (!numberIn(value, 1, 3650)) return { error: 'retentionPingDays must be 1–3650' };
+        next.retentionPingDays = value;
+        break;
+      case 'retentionDnsHttpDays':
+        if (!numberIn(value, 1, 3650)) return { error: 'retentionDnsHttpDays must be 1–3650' };
+        next.retentionDnsHttpDays = value;
+        break;
+      case 'plan': {
+        if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+          return { error: 'plan must be an object' };
+        }
+        for (const [pk, pv] of Object.entries(value as Record<string, unknown>)) {
+          switch (pk) {
+            case 'ispName':
+              if (typeof pv !== 'string' || pv.length > 200) return { error: 'plan.ispName must be a string of at most 200 characters' };
+              next.plan.ispName = pv;
+              break;
+            case 'currency':
+              if (typeof pv !== 'string' || pv.length > 10) return { error: 'plan.currency must be a string of at most 10 characters' };
+              next.plan.currency = pv;
+              break;
+            case 'downMbps':
+              if (pv !== null && !numberIn(pv, 0, 1_000_000)) return { error: 'plan.downMbps must be a number or null' };
+              next.plan.downMbps = pv;
+              break;
+            case 'upMbps':
+              if (pv !== null && !numberIn(pv, 0, 1_000_000)) return { error: 'plan.upMbps must be a number or null' };
+              next.plan.upMbps = pv;
+              break;
+            case 'pricePerMonth':
+              if (pv !== null && !numberIn(pv, 0, 1_000_000)) return { error: 'plan.pricePerMonth must be a number or null' };
+              next.plan.pricePerMonth = pv;
+              break;
+            default:
+              return { error: `unknown plan setting: ${pk}` };
+          }
+        }
+        break;
+      }
+      default:
+        return { error: `unknown setting: ${key}` };
+    }
+  }
+  return { next };
+}
+
 function rangeParams(q: Record<string, unknown>): { from: number; to: number } {
   const now = Date.now();
   const to = Number(q.to ?? now) || now;
@@ -249,18 +345,13 @@ export function registerRoutes(app: FastifyInstance, deps: RouteDeps): void {
 
   app.get('/settings', async () => repo.getSettings());
 
-  app.put('/settings', async (req) => {
-    const body = req.body as Partial<Settings>;
-    const current = repo.getSettings();
-    const next: Settings = {
-      ...current,
-      ...body,
-      plan: { ...current.plan, ...(body.plan ?? {}) },
-      // mode changes go through POST /mode so the scheduler reacts.
-      mode: current.mode,
-    };
-    repo.saveSettings(next);
-    return next;
+  app.put('/settings', async (req, reply) => {
+    const body = (req.body ?? {}) as Record<string, unknown>;
+    const merged = mergeSettings(repo.getSettings(), body);
+    if ('error' in merged) return reply.code(400).send({ error: merged.error });
+    repo.saveSettings(merged.next);
+    scheduler.detector.setLatencyThreshold(merged.next.latencyThresholdMs);
+    return merged.next;
   });
 
   app.post('/mode', async (req, reply) => {

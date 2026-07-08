@@ -261,8 +261,12 @@ export function buildReportPayload(repo: Repo, from: number, to: number): Report
 
 // ------------------------------------------------------------------- CSV
 
-function csvEscape(v: unknown): string {
-  const s = v === null || v === undefined ? '' : String(v);
+export function csvEscape(v: unknown): string {
+  let s = v === null || v === undefined ? '' : String(v);
+  // Guard against spreadsheet formula injection: neutralize a leading
+  // formula trigger on free-text fields (labels, hostnames). Numbers pass
+  // through untouched, so negative values keep their sign.
+  if (typeof v === 'string' && /^[=+\-@\t\r]/.test(s)) s = `'${s}`;
   return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 }
 
