@@ -12,11 +12,15 @@
   "scripts": {
     "typecheck": "npm run typecheck -w server && npm run typecheck -w web",
     "build:web": "npm run build -w web",
+    "dev": "TRAPLINE_PORT=8732 concurrently -k -n server,web -c blue,green \"npm run dev -w server\" \"npm run dev -w web\"",
     "dev:server": "npm run dev -w server",
     "dev:web": "npm run dev -w web",
     "test": "npm run test -w server"
   },
   "engines": {
     "node": ">=22"
+  },
+  "devDependencies": {
+    "concurrently": "^10.0.3"
   }
 }

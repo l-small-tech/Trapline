@@ -11,7 +11,7 @@ export default defineConfig({
     fs: { allow: ['..'] },
     proxy: {
       '/trapline/api': {
-        target: 'http://127.0.0.1:8731',
+        target: `http://127.0.0.1:${process.env.TRAPLINE_PORT ?? 8731}`,
         changeOrigin: true,
       },
     },

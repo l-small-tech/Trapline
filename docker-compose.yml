@@ -1,0 +1,25 @@
+# Trapline — ISP quality monitor.
+#
+# host networking is required: the probes must see the machine's real default
+# gateway and the ISP's first hop. On a bridge network the "gateway" would be
+# the Docker bridge and every outage would be misclassified as `lan`.
+# The server still binds 127.0.0.1 only (TRAPLINE_HOST) — expose it on the LAN
+# through nginx, not by widening the bind address.
+services:
+  trapline:
+    build: .
+    image: trapline:latest
+    container_name: trapline
+    network_mode: host
+    cap_add:
+      - NET_RAW # ping + mtr raw sockets
+    environment:
+      TRAPLINE_HOST: 127.0.0.1
+      TRAPLINE_PORT: 8731
+      TRAPLINE_DATA_DIR: /data
+    volumes:
+      - trapline-data:/data
+    restart: unless-stopped
+
+volumes:
+  trapline-data:
