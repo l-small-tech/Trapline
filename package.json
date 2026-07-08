@@ -1,0 +1,22 @@
+{
+  "name": "trapline",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Trapline — community ISP service-quality monitor. Checks your line on a regular schedule and builds evidence-grade reports.",
+  "license": "MIT",
+  "type": "module",
+  "workspaces": [
+    "server",
+    "web"
+  ],
+  "scripts": {
+    "typecheck": "npm run typecheck -w server && npm run typecheck -w web",
+    "build:web": "npm run build -w web",
+    "dev:server": "npm run dev -w server",
+    "dev:web": "npm run dev -w web",
+    "test": "npm run test -w server"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

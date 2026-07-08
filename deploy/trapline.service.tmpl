@@ -1,0 +1,16 @@
+[Unit]
+Description=Trapline ISP quality monitor
+Documentation=https://github.com/trapline
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=__ROOT__
+ExecStart=__NODE__ __ROOT__/node_modules/.bin/tsx __ROOT__/server/src/index.ts
+Restart=on-failure
+RestartSec=5
+Environment=NODE_ENV=production
+
+[Install]
+WantedBy=default.target

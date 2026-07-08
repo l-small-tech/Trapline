@@ -1,0 +1,14 @@
+# Dependencies
+node_modules/
+
+# Build output
+web/dist/
+
+# Runtime data (measurement database, pid files, logs)
+data/
+.run/
+*.log
+
+# Editor / OS noise
+.DS_Store
+*.swp
