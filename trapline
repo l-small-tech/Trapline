@@ -42,13 +42,10 @@ wait_healthy() {
 }
 
 cmd_build() {
-    command -v node >/dev/null 2>&1 || die "node not found — install Node 22+ (nvm recommended)"
+    command -v node >/dev/null 2>&1 || die "node not found — install Node 24+ (nvm recommended)"
     say "node $(node --version) / npm $(npm --version)"
     say "installing dependencies…"
     (cd "$ROOT" && npm install)
-    say "checking better-sqlite3 native module…"
-    (cd "$ROOT" && node -e "require('better-sqlite3')(':memory:').exec('select 1')") || die \
-        "better-sqlite3 failed to load. Try: sudo apt install build-essential python3 && rm -rf node_modules && ./trapline build"
     say "typechecking…"
     (cd "$ROOT" && npm run typecheck)
     say "running tests…"

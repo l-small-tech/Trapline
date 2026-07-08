@@ -2,7 +2,7 @@
  * All SQL lives here, grouped by domain. Every statement is prepared once
  * and reused. Timestamps are UTC epoch milliseconds.
  */
-import type Database from 'better-sqlite3';
+import type { StatementSync } from 'node:sqlite';
 import type { Db } from './db.js';
 import type {
   DnsPoint,
@@ -24,7 +24,7 @@ import type {
 } from '../../../shared/types.js';
 import { DEFAULT_SETTINGS } from '../config.js';
 
-type Stmt = Database.Statement;
+type Stmt = StatementSync;
 
 export class Repo {
   private stmts = new Map<string, Stmt>();
@@ -40,8 +40,17 @@ export class Repo {
     return s;
   }
 
+  /** Runs fn inside BEGIN/COMMIT (no nesting — node:sqlite has no savepoint helper). */
   transaction<T>(fn: () => T): T {
-    return this.db.transaction(fn)();
+    this.db.exec('BEGIN');
+    try {
+      const result = fn();
+      this.db.exec('COMMIT');
+      return result;
+    } catch (err) {
+      this.db.exec('ROLLBACK');
+      throw err;
+    }
   }
 
   // ---------------------------------------------------------------- settings
@@ -504,14 +513,14 @@ export class Repo {
   // --------------------------------------------------------------- retention
 
   purgeOldSamples(pingCutoff: number, dnsHttpCutoff: number): { pings: number; dns: number; http: number } {
-    const pings = this.prep('DELETE FROM ping_samples WHERE ts < ?').run(pingCutoff).changes;
-    const dns = this.prep('DELETE FROM dns_samples WHERE ts < ?').run(dnsHttpCutoff).changes;
-    const http = this.prep('DELETE FROM http_samples WHERE ts < ?').run(dnsHttpCutoff).changes;
+    const pings = Number(this.prep('DELETE FROM ping_samples WHERE ts < ?').run(pingCutoff).changes);
+    const dns = Number(this.prep('DELETE FROM dns_samples WHERE ts < ?').run(dnsHttpCutoff).changes);
+    const http = Number(this.prep('DELETE FROM http_samples WHERE ts < ?').run(dnsHttpCutoff).changes);
     return { pings, dns, http };
   }
 
   vacuumIncremental(): void {
-    this.db.pragma('incremental_vacuum');
-    this.db.pragma('optimize');
+    this.db.exec('PRAGMA incremental_vacuum');
+    this.db.exec('PRAGMA optimize');
   }
 }

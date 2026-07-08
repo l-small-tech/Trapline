@@ -1,29 +1,32 @@
 /**
- * Thin adapter around better-sqlite3.
+ * Thin adapter around Node's built-in `node:sqlite` (synchronous model).
  *
- * The rest of the codebase only touches this module's exports
- * (prepare/run/get/all/transaction/pragma), so if the native module ever
- * fails to build, Node's built-in `node:sqlite` (same synchronous model)
- * can be swapped in here without touching anything else.
+ * The rest of the codebase only touches this module's exports plus
+ * prepare/run/get/all on the returned handle, so the underlying driver can
+ * be swapped here without touching anything else. (This used to be
+ * better-sqlite3; node:sqlite removed the only native dependency, which is
+ * what makes the single-file release binaries possible.)
  */
 import fs from 'node:fs';
 import path from 'node:path';
-import Database from 'better-sqlite3';
+import { DatabaseSync } from 'node:sqlite';
 import { DB_PATH } from '../config.js';
 
-export type Db = Database.Database;
+export type Db = DatabaseSync;
 
 let db: Db | null = null;
 
 export function openDb(filePath: string = DB_PATH): Db {
   if (db) return db;
-  fs.mkdirSync(path.dirname(filePath), { recursive: true });
-  db = new Database(filePath);
-  db.pragma('journal_mode = WAL');
-  db.pragma('synchronous = NORMAL');
-  db.pragma('busy_timeout = 5000');
-  db.pragma('auto_vacuum = INCREMENTAL');
-  db.pragma('foreign_keys = ON');
+  if (filePath !== ':memory:') {
+    fs.mkdirSync(path.dirname(filePath), { recursive: true });
+  }
+  db = new DatabaseSync(filePath);
+  db.exec('PRAGMA journal_mode = WAL');
+  db.exec('PRAGMA synchronous = NORMAL');
+  db.exec('PRAGMA busy_timeout = 5000');
+  db.exec('PRAGMA auto_vacuum = INCREMENTAL');
+  db.exec('PRAGMA foreign_keys = ON');
   return db;
 }
 
@@ -35,7 +38,7 @@ export function getDb(): Db {
 export function closeDb(): void {
   if (db) {
     try {
-      db.pragma('wal_checkpoint(TRUNCATE)');
+      db.exec('PRAGMA wal_checkpoint(TRUNCATE)');
     } catch {
       // best effort on shutdown
     }

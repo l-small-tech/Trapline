@@ -175,19 +175,24 @@ export function migrate(db: Db): void {
   );
   // Table rebuilds must not cascade-delete referencing rows or fail FK
   // checks mid-migration (the standard SQLite alter-table procedure).
-  db.pragma('foreign_keys = OFF');
+  db.exec('PRAGMA foreign_keys = OFF');
   try {
     for (const m of MIGRATIONS) {
       if (applied.has(m.version)) continue;
-      db.transaction(() => {
+      db.exec('BEGIN');
+      try {
         db.exec(m.sql);
         db.prepare('INSERT INTO schema_migrations (version, applied_at) VALUES (?, ?)').run(
           m.version,
           Date.now(),
         );
-      })();
+        db.exec('COMMIT');
+      } catch (err) {
+        db.exec('ROLLBACK');
+        throw err;
+      }
     }
   } finally {
-    db.pragma('foreign_keys = ON');
+    db.exec('PRAGMA foreign_keys = ON');
   }
 }
