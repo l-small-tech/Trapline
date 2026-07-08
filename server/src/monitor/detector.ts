@@ -18,7 +18,8 @@
  *  - Latency spike: 60s rolling median above max(2x 1-hour EWMA baseline,
  *    baseline+30ms) sustained >=30s on >=2 WAN targets; closes after 60s
  *    below 1.3x baseline.
- *  - High latency: 60s rolling median above the user-set absolute threshold
+ *  - High latency: rolling median (>=60s, widened for slow ping modes so it
+ *    always spans a few samples) above the user-set absolute threshold
  *    (default 120ms, 0 disables) sustained >=30s on >=2 WAN targets; closes
  *    after 60s below 90% of the threshold on all targets.
  *  - DNS failure: 2 consecutive system-resolver failures (or >2s answers);
@@ -64,6 +65,8 @@ const LOSS_OPEN_PCT = 5;
 const LOSS_CLOSE_PCT = 2;
 const LOSS_CLOSE_SAMPLES = 120;
 const LATENCY_MEDIAN_WINDOW_MS = 60_000;
+/** Minimum successful samples before a rolling median is trusted. */
+const LATENCY_MIN_SAMPLES = 5;
 const LATENCY_SUSTAIN_MS = 30_000;
 const LATENCY_CLOSE_MS = 60_000;
 const LATENCY_ABS_MARGIN_MS = 30;
@@ -160,6 +163,16 @@ export class Detector {
     this.pingIntervalSec = sec;
   }
 
+  /**
+   * Rolling window (ms) for the latency median. At least 60s, but widened so
+   * it always spans LATENCY_MIN_SAMPLES samples — otherwise slow ping modes
+   * (e.g. eco's 30s interval) never gather enough points and latency
+   * detection silently never fires.
+   */
+  private latencyWindowMs(): number {
+    return Math.max(LATENCY_MEDIAN_WINDOW_MS, LATENCY_MIN_SAMPLES * this.pingIntervalSec * 1000);
+  }
+
   /** Absolute high-latency alert threshold in ms; <=0 disables the alert. */
   setLatencyThreshold(ms: number): void {
     this.latencyThresholdMs = Number.isFinite(ms) && ms > 0 ? ms : 0;
@@ -225,7 +238,7 @@ export class Detector {
     if (ok) {
       state.recent.push({ ts: sample.ts, rtt: sample.rttMs! });
     }
-    const cutoff = sample.ts - LATENCY_MEDIAN_WINDOW_MS;
+    const cutoff = sample.ts - this.latencyWindowMs();
     while (state.recent.length > 0 && state.recent[0]!.ts < cutoff) state.recent.shift();
 
     // Baseline only learns outside of anomalies, so a long spike does not
@@ -450,7 +463,7 @@ export class Detector {
     const base = state.baseline.get();
     const rtts = state.recent.map((r) => r.rtt);
     const med = median(rtts);
-    if (base === null || med === null || rtts.length < 5) return;
+    if (base === null || med === null || rtts.length < LATENCY_MIN_SAMPLES) return;
 
     const openThreshold = Math.max(2 * base, base + LATENCY_ABS_MARGIN_MS);
     const closeThreshold = 1.3 * base;
@@ -521,7 +534,7 @@ export class Detector {
     if (threshold <= 0) return; // disabled in settings
     const rtts = state.recent.map((r) => r.rtt);
     const med = median(rtts);
-    if (med === null || rtts.length < 5) return;
+    if (med === null || rtts.length < LATENCY_MIN_SAMPLES) return;
 
     if (med > threshold) {
       if (state.highSince === null) state.highSince = ts;

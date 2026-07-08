@@ -186,6 +186,37 @@ test('high latency threshold is settable and 0 disables the alert', () => {
   assert.equal(opened.filter((e) => e.kind === 'high_latency').length, 0, 'disabled with 0');
 });
 
+test('high latency fires in eco mode (30s ping interval), where a fixed 60s window would starve the median', () => {
+  // Regression: the latency median window must widen for slow ping modes.
+  // At a 30s interval a fixed 60s window holds only ~2 samples — below the
+  // 5-sample minimum — so latency detection used to never fire in eco mode.
+  const d = new Detector(
+    {
+      onOpen: (e) => opened.push(e),
+      onClose: (e) => closed.push(e),
+      onSuggestFullCapture: () => {},
+    },
+    30,
+  );
+  d.setTargets([GATEWAY, ANCHOR_A, ANCHOR_B]);
+  let t = 0;
+  // 1 hour healthy at 30s spacing.
+  for (let i = 0; i < 120; i++) {
+    d.onPing({ ts: t, targetId: 1, rttMs: 3 });
+    d.onPing({ ts: t, targetId: 3, rttMs: 20 });
+    d.onPing({ ts: t, targetId: 4, rttMs: 22 });
+    t += 30_000;
+  }
+  // 30 minutes of 300ms on both anchors (well above the 120ms default).
+  for (let i = 0; i < 60; i++) {
+    d.onPing({ ts: t, targetId: 1, rttMs: 3 });
+    d.onPing({ ts: t, targetId: 3, rttMs: 300 });
+    d.onPing({ ts: t, targetId: 4, rttMs: 300 });
+    t += 30_000;
+  }
+  assert.ok(opened.some((e) => e.kind === 'high_latency'), 'high latency opened in eco mode');
+});
+
 test('dns failure opens after 2 consecutive failures and closes after 2 successes', () => {
   const d = makeDetector();
   healthy(d, 0, 10);
