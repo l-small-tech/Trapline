@@ -2,7 +2,7 @@
   "name": "trapline",
   "version": "0.1.0",
   "private": true,
-  "description": "Trapline — community ISP service-quality monitor. Checks your line on a regular schedule and builds evidence-grade reports.",
+  "description": "Trapline \u2014 community ISP service-quality monitor. Checks your line on a regular schedule and builds evidence-grade reports.",
   "license": "GPL-3.0-or-later",
   "author": "l-small-tech",
   "type": "module",
@@ -16,12 +16,15 @@
     "dev": "TRAPLINE_PORT=8732 concurrently -k -n server,web -c blue,green \"npm run dev -w server\" \"npm run dev -w web\"",
     "dev:server": "npm run dev -w server",
     "dev:web": "npm run dev -w web",
-    "test": "npm run test -w server"
+    "test": "npm run test -w server",
+    "build:sea": "node scripts/build-sea.mjs"
   },
   "engines": {
     "node": ">=24"
   },
   "devDependencies": {
-    "concurrently": "^10.0.3"
+    "concurrently": "^10.0.3",
+    "esbuild": "^0.28.1",
+    "postject": "^1.0.0-alpha.6"
   }
 }

@@ -3,6 +3,9 @@ node_modules/
 
 # Build output
 web/dist/
+server/dist/
+build/
+dist/
 
 # Runtime data (measurement database, pid files, logs)
 data/
