@@ -2,8 +2,8 @@
 # Nightly auto-update for the Trapline deployment on beast.
 #
 # Runs ON beast (via cron) inside the git clone at ~/docker-compose/trapline.
-# Fetches origin/stable; if the clone is already at that commit, exits quietly.
-# Otherwise hard-resets to origin/stable, rebuilds, restarts the container, and
+# Fetches origin/main; if the clone is already at that commit, exits quietly.
+# Otherwise hard-resets to origin/main, rebuilds, restarts the container, and
 # waits for health. Idempotent — safe to run by hand any time.
 #
 # Cron entry (crontab -e on beast):
@@ -11,7 +11,7 @@
 set -euo pipefail
 
 REPO_DIR="$HOME/docker-compose/trapline"
-BRANCH="stable"
+BRANCH="main"
 HEALTH_URL="http://127.0.0.1:8731/trapline/api/health"
 
 say() { printf '[%s] %s\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$*"; }

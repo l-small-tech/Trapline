@@ -48,11 +48,11 @@ The compose file runs with **host networking** (required: on a bridge network th
 `NET_RAW` for ping/mtr. The server stays bound to `127.0.0.1:8731`; put nginx in front to serve
 it on the LAN. Data persists in the `trapline-data` volume (`TRAPLINE_DATA_DIR=/data`).
 
-The beast Docker host runs a git clone of this repo (checked out to the **`stable`** branch)
-and self-updates nightly: a cron job runs `deploy/auto-update.sh`, which fetches
-`origin/stable` and rebuilds/restarts the container only when the branch has moved. To ship a
-change to beast, **merge/push it to `stable`** — it goes live overnight (or run the script on
-beast by hand for an immediate deploy). `deploy/deploy-beast.sh` (rsync-based) remains for
+The beast Docker host runs a git clone of this repo and self-updates nightly: a cron job runs
+`deploy/auto-update.sh`, which fetches `origin/main` and rebuilds/restarts the container only
+when the branch has moved. To ship a change to beast, **push it to `main`** — it goes live
+overnight (or run the script on beast by hand for an immediate deploy). Only push code you'd
+be happy to find running in the morning. `deploy/deploy-beast.sh` (rsync-based) remains for
 one-off pushes to a fresh host, but don't rsync into the clone — it would dirty the tree the
 auto-updater manages. `deploy/beast-nginx-permissions.sh` is the one-time root setup that lets
 `lsmall` manage nginx app configs (`/etc/nginx/apps/`) and reload nginx without a password.
